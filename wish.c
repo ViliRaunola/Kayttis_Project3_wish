@@ -7,9 +7,9 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #define LEN 255
+#define PATH_LEN 255
 #define EXIT_CALL "exit"
 #define CD_CALL "cd"
-#define PATH_LEN 255
 #define PATH_CALL "path"
 
 const char error_message[30] = "An error has occurred\n";
@@ -155,8 +155,10 @@ void wish_cd(char *arguments[LEN], int arg_counter){
 }
 
 
-int wish_path(char *default_path, char **arguments, int no_args) {
-    if(no_args > 1) {
+int wish_path(char *default_path, char **arguments, int arg_counter) {
+    if (arg_counter == 1) {
+        strcpy(default_path, "");
+    } else if(arg_counter > 1) {
         // luo lista patheja
         strcpy(default_path, arguments[1]);
         strcat(default_path, "/");
