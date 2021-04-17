@@ -16,7 +16,7 @@ const char error_message[30] = "An error has occurred\n";
 
 void free_arguments(char *arguments[LEN]);
 void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer);
-void wish_cd(char *arguments[LEN]);
+void wish_cd(char *arguments[LEN], int arg_counter);
 int wish_path(char *default_path, char **arguments, int no_args);
 
 int main(int argc, char *argv[]){
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]){
                 continue;
             }
         } else if( !strcmp(arguments[0], CD_CALL) ){
-            wish_cd(arguments);
+            wish_cd(arguments, arg_counter);
         } else if (!strcmp(arguments[0], PATH_CALL)) {
             if(wish_path(default_path, arguments, arg_counter)) {
                 continue;
@@ -142,21 +142,9 @@ void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer){
 }
 
 //Instructions on how to use chdir() in c: https://www.geeksforgeeks.org/chdir-in-c-language-with-examples/
-void wish_cd(char *arguments[LEN]){
-    int arg_counter = 1;
-    char *temp;
-
-    //Count how many arguments cd command has
-    do{
-        temp = arguments[arg_counter];
-        arg_counter++;
-    }while(temp != NULL);
-    
-    //Because temp and cd are also counted they have to be subtracted from the counter
-    arg_counter = arg_counter - 2;
-
+void wish_cd(char *arguments[LEN], int arg_counter){
     //Check that only one argument is supplied to the cd command
-    if(arg_counter != 1){
+    if(arg_counter != 2){
         write(STDERR_FILENO, error_message, strlen(error_message));
     }else{
         if(chdir(arguments[1]) == -1){  //If only one command was set for cd the current directory will be changed using chdir()
