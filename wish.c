@@ -9,12 +9,15 @@
 #define LEN 255
 #define EXIT_CALL "exit"
 #define CD_CALL "cd"
+#define PATH_LEN 255
+#define PATH_CALL "path"
 
 const char error_message[30] = "An error has occurred\n";
 
 void free_arguments(char *arguments[LEN]);
 void wish_exit(char **arguments, char *line);
 void wish_cd(char *arguments[LEN]);
+int wish_path(char *default_path, char **arguments, int no_args);
 
 int main(int argc, char *argv[]){
     pid_t pid;
@@ -23,6 +26,8 @@ int main(int argc, char *argv[]){
     char *line = NULL;
     char *temp;
     char *arguments[LEN];
+    char default_path[PATH_LEN] = "/bin/";
+    char path[PATH_LEN];
     int i, status;
       
     while(1){
@@ -140,4 +145,14 @@ void wish_cd(char *arguments[LEN]){
         }
     }
 
+}
+
+
+int wish_path(char *default_path, char **arguments, int no_args) {
+    if(!strcmp(arguments[0], PATH_CALL)) {
+        if(no_args >= 2) {
+            strcpy(default_path, arguments[1]);
+            return 1;
+        }
+    }
 }
