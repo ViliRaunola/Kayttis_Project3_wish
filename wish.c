@@ -29,6 +29,8 @@ int main(int argc, char *argv[]){
     char default_path[PATH_LEN] = "/bin";
     char path[PATH_LEN];
     int arg_counter, status;
+    int parallel_flag = 0;
+    int redirection_flag = 0;
     FILE *input_pointer;
 
     if(argc == 1){
@@ -64,8 +66,16 @@ int main(int argc, char *argv[]){
             temp = strtok(line, " ");
             arg_counter = 0;
             while(temp != NULL){
-                strcpy(arguments[arg_counter], temp);
-                arg_counter++;
+
+                if( !strcmp(temp, "&") ){
+                    parallel_flag = 1;
+                }else if( !strcmp(temp, ">") ){
+                    redirection_flag = 1;
+                }else{
+                    strcpy(arguments[arg_counter], temp);
+                    arg_counter++;
+                }
+  
                 temp = strtok(NULL, " ");
             }
 
