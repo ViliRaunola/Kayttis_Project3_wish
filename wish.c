@@ -15,7 +15,7 @@
 const char error_message[30] = "An error has occurred\n";
 
 void free_arguments(char *arguments[LEN]);
-void wish_exit(char **arguments, char *line);
+void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer);
 void wish_cd(char *arguments[LEN]);
 int wish_path(char *default_path, char **arguments, int no_args);
 
@@ -28,7 +28,21 @@ int main(int argc, char *argv[]){
     char *arguments[LEN];
     char default_path[PATH_LEN] = "/bin";
     char path[PATH_LEN];
-    int i, status;
+    int arg_counter, status;
+    FILE *input_pointer;
+
+    if(argc == 1){
+        input_pointer = stdin;
+    }else if (argc > 2){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        exit(1);
+    }else{
+        if( (input_pointer = fopen(argv[1], "r")) == NULL ){
+            write(STDERR_FILENO, error_message, strlen(error_message));
+            exit(1);
+        }
+    }
+    
       
     while(1){
 
@@ -36,37 +50,46 @@ int main(int argc, char *argv[]){
             arguments[i] = malloc(LEN * sizeof(char));
         }	
 
-        printf("wish> ");
-        if( (line_size = getline(&line, &buffer_size, stdin)) != -1) {
+        if(argc == 1){
+            printf("wish> ");
+        }
+        
+        
+        if( (line_size = getline(&line, &buffer_size, input_pointer)) != -1) {
             //Program continues if only empty line is passed to it.
             if(line_size == 1){
                 continue;
             }
             line[strlen(line) - 1] = 0;
             temp = strtok(line, " ");
-            i = 0;
+            arg_counter = 0;
             while(temp != NULL){
-                strcpy(arguments[i], temp);
-                i++;
+                strcpy(arguments[arg_counter], temp);
+                arg_counter++;
                 temp = strtok(NULL, " ");
             }
 
             //Inserting null to the end of the arguments list so 
-            free(arguments[i]);
-            arguments[i] =  NULL;
+            free(arguments[arg_counter]);
+            arguments[arg_counter] =  NULL;
         
         }else{
-            write(STDERR_FILENO, error_message, strlen(error_message));
-            exit(1);
+            wish_exit(arguments, line, input_pointer);
         }
 
         //Tähän kohtaa tarkistetaan onko oma vai systeemi kutsu
-        wish_exit(arguments, line);
-
-        if( !strcmp(arguments[0], CD_CALL) ){
+        
+        if (!strcmp(arguments[0], EXIT_CALL)){
+            if(arg_counter == 1){
+                wish_exit(arguments, line, input_pointer);
+            }else{
+                write(STDERR_FILENO, error_message, strlen(error_message));
+                continue;
+            }
+        } else if( !strcmp(arguments[0], CD_CALL) ){
             wish_cd(arguments);
         } else if (!strcmp(arguments[0], PATH_CALL)) {
-            if(wish_path(default_path, arguments, i)) {
+            if(wish_path(default_path, arguments, arg_counter)) {
                 continue;
             } 
         } else {       
@@ -97,13 +120,9 @@ int main(int argc, char *argv[]){
                 break;
             }
         }
-
-
-
         
-    free_arguments(arguments);
+        free_arguments(arguments);
     }
-    
 
     return(0);
 }
@@ -115,13 +134,11 @@ void free_arguments(char *arguments[LEN]){
 }
 
 
-void wish_exit(char *arguments[LEN], char *line){
-    if (!strcmp(arguments[0], EXIT_CALL)) {
-        free_arguments(arguments);
-        free(line);
-        exit(0);
-    }
-    
+void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer){
+    free_arguments(arguments);
+    free(line);
+    fclose(input_pointer);
+    exit(0);
 }
 
 //Instructions on how to use chdir() in c: https://www.geeksforgeeks.org/chdir-in-c-language-with-examples/
