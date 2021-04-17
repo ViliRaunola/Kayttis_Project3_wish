@@ -6,25 +6,27 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/wait.h>
-#define LEN 250
+#define LEN 255
+#define EXIT_CALL "exit"
 
 const char error_message[30] = "An error has occurred\n";
 
+void free_arguments(char *arguments[LEN]);
+void wish_exit(char **arguments, char *line);
+
 int main(int argc, char *argv[]){
     pid_t pid;
-    char *line = NULL;
     size_t buffer_size = 0;
-    char *temp;
-    char *commands[LEN];
-    int i, status;
     ssize_t line_size;
-
-    //printf("Hello World!\n");
-  
+    char *line = NULL;
+    char *temp;
+    char *arguments[LEN];
+    int i, status;
+      
     while(1){
 
         for(int i = 0; i < LEN; i++){
-            commands[i] = malloc(LEN);
+            arguments[i] = malloc(LEN);
         }	
 
         printf("wish> ");
@@ -37,29 +39,37 @@ int main(int argc, char *argv[]){
             temp = strtok(line, " ");
             i = 0;
             while(temp != NULL){
-                strcpy(commands[i], temp);
+                strcpy(arguments[i], temp);
                 i++;
                 temp = strtok(NULL, " ");
             }
-            
-            commands[i] = NULL;
+
+            //Inserting null to the end of the arguments list so 
+            arguments[i] = NULL;
+        
         }else{
             write(STDERR_FILENO, error_message, strlen(error_message));
             exit(1);
         }
-     
-        char path[LEN] = "/bin/";
-        strcat(path, commands[0]);        
 
+        //Tähän kohtaa tarkistetaan onko oma vai systeemi kutsu
+        wish_exit(arguments, line);
+
+        char path[LEN] = "/bin/";
+        strcat(path, arguments[0]);        
+/*
         switch (pid = fork())
         {
         case -1:
             write(STDERR_FILENO, error_message, strlen(error_message));
             break;
         case 0: //The child prosess
-            if (execv(path, commands) == -1) {
+            if (execv(path, arguments) == -1) {
+                free_arguments(arguments);
                 write(STDERR_FILENO, error_message, strlen(error_message));
+                exit(0);    //Exiting the child when error happens and return back to the parent prosess.
             }
+            
             break;
         default: //Parent process
 
@@ -70,18 +80,28 @@ int main(int argc, char *argv[]){
 
             break;
         }
+*/
         
-
-    for(int i = 0; i < LEN; i++){
-        free(commands[i]);
-    }
-
-    }
+    free_arguments(arguments);
     free(line);
-
-    for(int i = 0; i < LEN; i++){
-        free(commands[i]);
     }
+    
 
     return(0);
+}
+
+void free_arguments(char *arguments[LEN]){
+    for(int i = 0; i < LEN; i++){
+        free(arguments[i]);
+    }
+}
+
+
+void wish_exit(char *arguments[LEN], char *line){
+    if (!strcmp(arguments[0], EXIT_CALL)) {
+        free_arguments(arguments);
+        free(line);
+        exit(0);
+    }
+    
 }
