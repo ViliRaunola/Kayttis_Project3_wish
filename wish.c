@@ -19,6 +19,7 @@ void free_arguments(char *arguments[LEN]);
 void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer);
 void wish_cd(char *arguments[LEN], int arg_counter);
 int wish_path(char *default_path, char **arguments, int no_args);
+int redirection(char *line, char *argument_line, char **arguments, char *delimiters, char *redir_filename, char *redir_rest);
 
 int main(int argc, char *argv[]){
     pid_t pid;
@@ -29,7 +30,7 @@ int main(int argc, char *argv[]){
     char *arguments[LEN];
     char default_path[PATH_LEN] = "/bin";
     char path[PATH_LEN];
-    char *redir_filename = NULL;
+    char redir_filename[LEN];
     char delimiters[] = " \t\r\n\v\f>"; //Source: https://www.javaer101.com/en/article/12327171.html
     char *argument_line = NULL;
     char *redir_rest = NULL;
@@ -61,7 +62,6 @@ int main(int argc, char *argv[]){
             printf("wish> ");
         }
         
-        
         if( (line_size = getline(&line, &buffer_size, input_pointer)) != -1) {
             //Program continues if only empty line is passed to it.
             if(line_size == 1){
@@ -71,31 +71,12 @@ int main(int argc, char *argv[]){
             line[strlen(line) - 1] = 0;
             argument_line = line;
             redir_rest = line;
-            // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
-            if(strstr(line, ">")) {
-                
-                argument_line = strtok_r(redir_rest, ">", &redir_rest);
-                // too many redirect signs
-                if (strstr(redir_rest, ">")) {
-                    write(STDERR_FILENO, error_message, strlen(error_message));
-                    free_arguments(arguments);
-                    continue;
-                } 
-                //checks if a filename has been given to redirect to
-                if ((redir_filename = strtok_r(redir_rest, delimiters, &redir_rest))) {
-                    //Too many arguments for redirect
-                    if (strtok_r(redir_rest, delimiters, &redir_rest) != NULL) {
-                        write(STDERR_FILENO, error_message, strlen(error_message));
-                        free_arguments(arguments);
-                        continue;
-                    }
-                } else {
-                    // no file given
-                    write(STDERR_FILENO, error_message, strlen(error_message));
-                    free_arguments(arguments);
-                    continue;
-                }
-                redir_flag = 1;
+            redir_flag = redirection(line, argument_line, arguments, delimiters, redir_filename, redir_rest);
+            // redir_flag returns 2 if error
+            if (redir_flag == 2) {
+                write(STDERR_FILENO, error_message, strlen(error_message));
+                free_arguments(arguments);
+                continue;
             }
 
             arg_rest = argument_line;
@@ -201,11 +182,6 @@ void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer){
 
 //Instructions on how to use chdir() in c: https://www.geeksforgeeks.org/chdir-in-c-language-with-examples/
 void wish_cd(char *arguments[LEN], int arg_counter){
-    // printf("arguments: ");
-    // for (int i = 0;i<arg_counter;i++) {
-    //     printf("%s ", arguments[i]);
-    // }
-    // printf("\n");
     //Check that only one argument is supplied to the cd command
     if(arg_counter != 2){
         write(STDERR_FILENO, error_message, strlen(error_message));
@@ -225,6 +201,31 @@ int wish_path(char *default_path, char **arguments, int arg_counter) {
         // luo lista patheja
         strcpy(default_path, arguments[1]);
         strcat(default_path, "/");
+        return 1;
+    }
+    return 0;
+}
+
+int redirection(char *line, char *argument_line, char **arguments, char *delimiters, char *redir_filename, char *redir_rest) {
+    // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+    char *filename;
+    if(strstr(line, ">")) {
+        argument_line = strtok_r(redir_rest, ">", &redir_rest);
+        if (strstr(redir_rest, ">")) {
+            // too many redirect signs
+            return 2;
+        } 
+        //checks if a filename has been given to redirect to
+        if ((filename = strtok_r(redir_rest, delimiters, &redir_rest))) {
+            if (strtok_r(redir_rest, delimiters, &redir_rest) != NULL) {
+                //Too many arguments for redirect
+                return 2;
+            }
+        } else {
+            // no file given
+            return 2;
+        }
+        strcpy(redir_filename, filename);
         return 1;
     }
     return 0;

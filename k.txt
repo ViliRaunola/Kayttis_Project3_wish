@@ -1,9 +1,0 @@
-in.txt
-jee.txt
-k.txt
-ok
-temp
-t.trt
-wish
-wish.c
-sh.c
