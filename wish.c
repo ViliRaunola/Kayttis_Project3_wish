@@ -26,7 +26,7 @@ int main(int argc, char *argv[]){
     while(1){
 
         for(int i = 0; i < LEN; i++){
-            arguments[i] = malloc(LEN);
+            arguments[i] = malloc(LEN * sizeof(char));
         }	
 
         printf("wish> ");
@@ -67,6 +67,7 @@ int main(int argc, char *argv[]){
         case 0: //The child prosess
             if (execv(path, arguments) == -1) {
                 free_arguments(arguments);
+                free(line);
                 write(STDERR_FILENO, error_message, strlen(error_message));
                 exit(0);    //Exiting the child when error happens and return back to the parent prosess.
             }
@@ -84,7 +85,6 @@ int main(int argc, char *argv[]){
 
         
     free_arguments(arguments);
-    free(line);
     }
     
 
