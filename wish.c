@@ -7,12 +7,15 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #define LEN 255
+#define PATH_LEN 255
 #define EXIT_CALL "exit"
+#define PATH_CALL "path"
 
 const char error_message[30] = "An error has occurred\n";
 
 void free_arguments(char *arguments[LEN]);
 void wish_exit(char **arguments, char *line);
+int wish_path(char *default_path, char **arguments, int no_args);
 
 int main(int argc, char *argv[]){
     pid_t pid;
@@ -21,6 +24,8 @@ int main(int argc, char *argv[]){
     char *line = NULL;
     char *temp;
     char *arguments[LEN];
+    char default_path[PATH_LEN] = "/bin/";
+    char path[PATH_LEN];
     int i, status;
       
     while(1){
@@ -55,9 +60,16 @@ int main(int argc, char *argv[]){
 
         //Tähän kohtaa tarkistetaan onko oma vai systeemi kutsu
         wish_exit(arguments, line);
+        if(wish_path(default_path, arguments, i)) {
+            continue;
+        } else {
+            strcpy(path, default_path);
+            strcat(path, arguments[0]);
+        }
+        
 
-        char path[LEN] = "/bin/";
-        strcat(path, arguments[0]);        
+        // strcpy(path, default_path);
+        // strcat(path, arguments[0]);        
 
         //The switch case structure was implemented from our homework assignment in week 10 task 3.
         switch (pid = fork()){
@@ -105,4 +117,14 @@ void wish_exit(char *arguments[LEN], char *line){
         exit(0);
     }
     
+}
+
+int wish_path(char *default_path, char **arguments, int no_args) {
+    if(!strcmp(arguments[0], PATH_CALL)) {
+        if(no_args >= 2) {
+            strcpy(default_path, arguments[1]);
+            return 1;
+        }
+    }
+    return 0;
 }
