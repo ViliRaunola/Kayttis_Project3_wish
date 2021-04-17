@@ -68,31 +68,38 @@ int main(int argc, char *argv[]){
             }
             //Remove new line character from input
             line[strlen(line) - 1] = 0;
+            printf("Line: %s\n", line);
+            char *argumentline;
+            if(strstr(line, ">")) {
+                argumentline = strtok(line, ">");
+                redirection_filename = strtok(NULL, ">");
+            }
+            printf("Line: %s\n", line);
+            printf("argumentline: %s\n", argumentline);
+            printf("redirection_filename: %s\n", redirection_filename);
             temp = strtok(line, delimiters);
             arg_counter = 0;
             while(temp != NULL){
 
                 //char *temp2;
+                //printf("Line: %s\n", line);
+                if( strstr(line, ">") ){
+                    // if((temp = strtok(NULL, delimiters)) != NULL){
+                    //     strcpy(arguments[arg_counter], temp);
+                    //     arg_counter++;
+            
+                    // }
 
-                if( strstr(temp, ">") ){
-                    temp = strtok(temp, ">");
-
-                    if(temp != NULL){
-                        strcpy(arguments[arg_counter], temp);
-                        arg_counter++;
-                    }else{
-                        continue;
-                    }
-
-
-                    //temp = strtok(NULL, ">");
-
+                    
+                    //temp = strtok(NULL, delimiters);
+                    //printf("temp: %s\n", temp);
+                    //printf("DFKILHNJZ on: %s\n", redirection_filename);
                     /*
                     temp2 = strtok(temp, ">");
                     strcpy(redirection_filename, temp2);
                     temp = strtok(NULL, ">");
                     */
-
+                        
                    
                     if( ( redirection_filename = strtok(NULL, ">")) == NULL){
                         write(STDERR_FILENO, error_message, strlen(error_message));

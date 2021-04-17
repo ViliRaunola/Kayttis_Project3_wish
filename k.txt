@@ -1,4 +1,8 @@
-An error has occurred
-emp
+in.txt
+jee.txt
+k.txt
+ok
+temp
+t.trt
 wish
 wish.c
