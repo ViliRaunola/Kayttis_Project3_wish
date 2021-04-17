@@ -8,11 +8,13 @@
 #include <sys/wait.h>
 #define LEN 255
 #define EXIT_CALL "exit"
+#define CD_CALL "cd"
 
 const char error_message[30] = "An error has occurred\n";
 
 void free_arguments(char *arguments[LEN]);
 void wish_exit(char **arguments, char *line);
+void wish_cd(char *arguments[LEN]);
 
 int main(int argc, char *argv[]){
     pid_t pid;
@@ -56,32 +58,40 @@ int main(int argc, char *argv[]){
         //Tähän kohtaa tarkistetaan onko oma vai systeemi kutsu
         wish_exit(arguments, line);
 
-        char path[LEN] = "/bin/";
-        strcat(path, arguments[0]);        
+        if( !strcmp(arguments[0], CD_CALL) ){
+            wish_cd(arguments);
 
-        //The switch case structure was implemented from our homework assignment in week 10 task 3.
-        switch (pid = fork()){
-        case -1:
-            write(STDERR_FILENO, error_message, strlen(error_message));
-            break;
-        case 0: //The child prosess
-            if (execv(path, arguments) == -1) {
-                free_arguments(arguments);
-                free(line);
-                write(STDERR_FILENO, error_message, strlen(error_message));
-                exit(0);    //Exiting the child when error happens and return back to the parent prosess.
-            }
+        }else{
             
-            break;
-        default: //Parent process
+            char path[LEN] = "/bin/";
+            strcat(path, arguments[0]);        
 
-            if (wait(&status) == -1) {	//Odottaa lapsen päättymistä
-                    perror("wait");
-                    exit(1);
+            //The switch case structure was implemented from our homework assignment in week 10 task 3.
+            switch (pid = fork()){
+            case -1:
+                write(STDERR_FILENO, error_message, strlen(error_message));
+                break;
+            case 0: //The child prosess
+                if (execv(path, arguments) == -1) {
+                    free_arguments(arguments);
+                    free(line);
+                    write(STDERR_FILENO, error_message, strlen(error_message));
+                    exit(0);    //Exiting the child when error happens and return back to the parent prosess.
+                }
+                
+                break;
+            default: //Parent process
+
+                if (wait(&status) == -1) {	//Odottaa lapsen päättymistä
+                        perror("wait");
+                        exit(1);
+                }
+
+                break;
             }
-
-            break;
         }
+
+
 
         
     free_arguments(arguments);
@@ -105,4 +115,29 @@ void wish_exit(char *arguments[LEN], char *line){
         exit(0);
     }
     
+}
+
+//Instructions on how to use chdir() in c: https://www.geeksforgeeks.org/chdir-in-c-language-with-examples/
+void wish_cd(char *arguments[LEN]){
+    int arg_counter = 1;
+    char *temp;
+
+    //Count how many arguments cd command has
+    do{
+        temp = arguments[arg_counter];
+        arg_counter++;
+    }while(temp != NULL);
+    
+    //Because temp and cd are also counted they have to be subtracted from the counter
+    arg_counter = arg_counter - 2;
+
+    //Check that only one argument is supplied to the cd command
+    if(arg_counter != 1){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+    }else{
+        if(chdir(arguments[1]) == -1){  //If only one command was set for cd the current directory will be changed using chdir()
+            write(STDERR_FILENO, error_message, strlen(error_message));
+        }
+    }
+
 }
