@@ -59,8 +59,8 @@ int main(int argc, char *argv[]){
         char path[LEN] = "/bin/";
         strcat(path, arguments[0]);        
 
-        switch (pid = fork())
-        {
+        //The switch case structure was implemented from our homework assignment in week 10 task 3.
+        switch (pid = fork()){
         case -1:
             write(STDERR_FILENO, error_message, strlen(error_message));
             break;
