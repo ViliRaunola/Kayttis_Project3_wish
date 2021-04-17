@@ -5,17 +5,19 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #define LEN 250
 
 const char error_message[30] = "An error has occurred\n";
 
-int main(){
-    //pid_t pid;
+int main(int argc, char *argv[]){
+    pid_t pid;
     char *line = NULL;
     size_t buffer_size = 0;
     char *temp;
     char *commands[LEN];
-    int i;
+    int i, status;
+    ssize_t line_size;
 
     //printf("Hello World!\n");
   
@@ -26,8 +28,12 @@ int main(){
         }	
 
         printf("wish> ");
-        if( (getline(&line, &buffer_size, stdin)) != -1) {
-            
+        if( (line_size = getline(&line, &buffer_size, stdin)) != -1) {
+            //Program continues if only empty line is passed to it.
+            if(line_size == 1){
+                continue;
+            }
+            line[strlen(line) - 1] = 0;
             temp = strtok(line, " ");
             i = 0;
             while(temp != NULL){
@@ -41,35 +47,31 @@ int main(){
             write(STDERR_FILENO, error_message, strlen(error_message));
             exit(1);
         }
+     
+        char path[LEN] = "/bin/";
+        strcat(path, commands[0]);        
 
-        int j = 0;
-        while(commands[j] != NULL){
-            printf("%s", commands[j]);
-            j++;
-        }
-
-
-/*
         switch (pid = fork())
         {
         case -1:
             write(STDERR_FILENO, error_message, strlen(error_message));
             break;
         case 0: //The child prosess
-
-
-     
-            if (execv(argv[1], argv + 1) == -1) {
+            if (execv(path, commands) == -1) {
                 write(STDERR_FILENO, error_message, strlen(error_message));
             }
-        
-
             break;
         default: //Parent process
+
+            if (wait(&status) == -1) {	//Odottaa lapsen päättymistä
+                    perror("wait");
+                    exit(1);
+            }
+
             break;
         }
+        
 
-*/
     for(int i = 0; i < LEN; i++){
         free(commands[i]);
     }
