@@ -45,7 +45,8 @@ int main(int argc, char *argv[]){
             }
 
             //Inserting null to the end of the arguments list so 
-            arguments[i] = NULL;
+            free(arguments[i]);
+            arguments[i] =  NULL;
         
         }else{
             write(STDERR_FILENO, error_message, strlen(error_message));
@@ -57,7 +58,7 @@ int main(int argc, char *argv[]){
 
         char path[LEN] = "/bin/";
         strcat(path, arguments[0]);        
-/*
+
         switch (pid = fork())
         {
         case -1:
@@ -80,7 +81,7 @@ int main(int argc, char *argv[]){
 
             break;
         }
-*/
+
         
     free_arguments(arguments);
     free(line);
