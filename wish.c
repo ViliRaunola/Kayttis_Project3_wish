@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <fcntl.h>      
 #define LEN 255
 #define PATH_LEN 255
 #define EXIT_CALL "exit"
@@ -28,9 +29,12 @@ int main(int argc, char *argv[]){
     char *arguments[LEN];
     char default_path[PATH_LEN] = "/bin";
     char path[PATH_LEN];
+    char *redirection_filename;
+    char delimiters[] = " \t\r\n\v\f"; //Source: https://www.javaer101.com/en/article/12327171.html
+    char redir_delimiters[] = " \t\r\n\v\f>";
     int arg_counter, status;
-    int parallel_flag = 0;
     int redirection_flag = 0;
+    int redirection_argument_error_flag = 0;
     FILE *input_pointer;
 
     if(argc == 1){
@@ -47,7 +51,7 @@ int main(int argc, char *argv[]){
     
       
     while(1){
-
+        redirection_argument_error_flag = 0;
         for(int i = 0; i < LEN; i++){
             arguments[i] = malloc(LEN * sizeof(char));
         }	
@@ -62,26 +66,70 @@ int main(int argc, char *argv[]){
             if(line_size == 1){
                 continue;
             }
+            //Remove new line character from input
             line[strlen(line) - 1] = 0;
-            temp = strtok(line, " ");
+            temp = strtok(line, delimiters);
             arg_counter = 0;
             while(temp != NULL){
 
-                if( !strcmp(temp, "&") ){
-                    parallel_flag = 1;
-                }else if( !strcmp(temp, ">") ){
+                //char *temp2;
+
+                if( strstr(temp, ">") ){
+                    temp = strtok(temp, ">");
+
+                    if(temp != NULL){
+                        strcpy(arguments[arg_counter], temp);
+                        arg_counter++;
+                    }else{
+                        continue;
+                    }
+
+
+                    //temp = strtok(NULL, ">");
+
+                    /*
+                    temp2 = strtok(temp, ">");
+                    strcpy(redirection_filename, temp2);
+                    temp = strtok(NULL, ">");
+                    */
+
+                   
+                    if( ( redirection_filename = strtok(NULL, ">")) == NULL){
+                        write(STDERR_FILENO, error_message, strlen(error_message));
+                        free_arguments(arguments);
+                        redirection_argument_error_flag = 1;
+                        break;
+                    }
+
+                    printf("DFKILHNJZ on: %s\n", redirection_filename);
+                    
+                    /*
+                    if(temp == NULL){
+                        write(STDERR_FILENO, error_message, strlen(error_message));
+                        free_arguments(arguments);
+                        redirection_argument_error_flag = 1;
+                        break;
+                    }
+                    strcpy(redirection_filename, temp);
+                    */
                     redirection_flag = 1;
+                    break;
                 }else{
                     strcpy(arguments[arg_counter], temp);
                     arg_counter++;
                 }
   
-                temp = strtok(NULL, " ");
+                temp = strtok(NULL, delimiters);
             }
 
-            //Inserting null to the end of the arguments list so 
-            free(arguments[arg_counter]);
-            arguments[arg_counter] =  NULL;
+        if(redirection_argument_error_flag){
+            continue;
+        }
+
+        //Memory slot has to be freed before being assigned to null so it wont be lost.
+        free(arguments[arg_counter]);
+        //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
+        arguments[arg_counter] =  NULL;
         
         }else{
             wish_exit(arguments, line, input_pointer);
@@ -112,12 +160,40 @@ int main(int argc, char *argv[]){
                 write(STDERR_FILENO, error_message, strlen(error_message));
                 break;
             case 0: //The child prosess
-                if (execv(path, arguments) == -1) {
-                    free_arguments(arguments);
-                    free(line);
-                    write(STDERR_FILENO, error_message, strlen(error_message));
-                    exit(0);    //Exiting the child when error happens and return back to the parent prosess.
+
+                if(redirection_flag){
+
+                    //How to use open function with dup2. Source: https://www.youtube.com/watch?v=5fnVr-zH-SE&t=   
+                    int output_file;
+
+                    if( (output_file = open(redirection_filename, O_WRONLY | O_CREAT, 0777)) == -1){
+                        write(STDERR_FILENO, error_message, strlen(error_message));
+                        free_arguments(arguments);
+                        free(line);
+                        exit(1);
+                    }
+
+                    dup2(output_file, STDOUT_FILENO); //Redirect stdout
+                    dup2(output_file, STDERR_FILENO); //Redirect stderr
+                    close(output_file);
+
+                    if (execv(path, arguments) == -1) {
+                        free_arguments(arguments);
+                        free(line);
+                        write(STDERR_FILENO, error_message, strlen(error_message));
+                        exit(0);    //Exiting the child when error happens and return back to the parent prosess.
+                    }
+
+                }else{
+                    if (execv(path, arguments) == -1) {
+                        free_arguments(arguments);
+                        free(line);
+                        write(STDERR_FILENO, error_message, strlen(error_message));
+                        exit(0);    //Exiting the child when error happens and return back to the parent prosess.
+                    }
                 }
+
+              
                 
                 break;
             default: //Parent process
@@ -131,6 +207,7 @@ int main(int argc, char *argv[]){
             }
         }
         
+        redirection_flag = 0;
         free_arguments(arguments);
     }
 
