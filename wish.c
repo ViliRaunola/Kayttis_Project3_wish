@@ -26,7 +26,7 @@ int main(int argc, char *argv[]){
     char *line = NULL;
     char *temp;
     char *arguments[LEN];
-    char default_path[PATH_LEN] = "/bin/";
+    char default_path[PATH_LEN] = "/bin";
     char path[PATH_LEN];
     int i, status;
       
@@ -65,12 +65,14 @@ int main(int argc, char *argv[]){
 
         if( !strcmp(arguments[0], CD_CALL) ){
             wish_cd(arguments);
-
-        }else{
-            
-            char path[LEN] = "/bin/";
-            strcat(path, arguments[0]);        
-
+        } else if (!strcmp(arguments[0], PATH_CALL)) {
+            if(wish_path(default_path, arguments, i)) {
+                continue;
+            } 
+        } else {       
+            strcpy(path, default_path);
+            strcat(path, "/");
+            strcat(path, arguments[0]);
             //The switch case structure was implemented from our homework assignment in week 10 task 3.
             switch (pid = fork()){
             case -1:
@@ -149,10 +151,11 @@ void wish_cd(char *arguments[LEN]){
 
 
 int wish_path(char *default_path, char **arguments, int no_args) {
-    if(!strcmp(arguments[0], PATH_CALL)) {
-        if(no_args >= 2) {
-            strcpy(default_path, arguments[1]);
-            return 1;
-        }
+    if(no_args > 1) {
+        // luo lista patheja
+        strcpy(default_path, arguments[1]);
+        strcat(default_path, "/");
+        return 1;
     }
+    return 0;
 }
