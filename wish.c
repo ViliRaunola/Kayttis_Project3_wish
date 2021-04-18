@@ -19,7 +19,7 @@ void free_arguments(char *arguments[LEN]);
 void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer);
 void wish_cd(char *arguments[LEN], int arg_counter);
 int wish_path(char *default_path, char **arguments, int no_args);
-int redirection(char *line, char *argument_line, char **arguments, char *delimiters, char *redir_filename);
+int redirection(char *line, char *argument_line, char *delimiters, char *redir_filename);
 void create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char *path);
 void parse_for_parallel(char **arguments, char *line, char *delimiters);
 
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]){
 
             }else{
                 argument_line = line;
-                redir_flag = redirection(line, argument_line, arguments, delimiters, redir_filename);
+                redir_flag = redirection(line, argument_line, delimiters, redir_filename);
                 // redir_flag returns 2 if error
                 if (redir_flag == 2) {
                     write(STDERR_FILENO, error_message, strlen(error_message));
@@ -185,7 +185,7 @@ int main(int argc, char *argv[]){
                     y++;
                 }
 
-                redir_flag = redirection(virtual_line, argument_line, arguments2, delimiters, redir_filename);
+                redir_flag = redirection(virtual_line, argument_line, delimiters, redir_filename);
                 strcpy(path, default_path);
                 strcat(path, "/");
                 strcat(path, arguments2[0]);
@@ -221,7 +221,7 @@ void parse_for_parallel(char *arguments[LEN], char *line, char *delimiters){
     
     while ((token = strtok_r(line, "&", &line))) {
         // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
-        while((token2 = strtok_r(token, delimiters, &token))){
+        while((token2 = strtok_r(token, " \t\r\n\v\f", &token))){ //TODO: 
             strcpy(arguments[arg_counter], token2);
             arg_counter++;
         }
@@ -276,7 +276,7 @@ int wish_path(char *default_path, char **arguments, int arg_counter) {
     return 0;
 }
 
-int redirection(char *line, char *argument_line, char **arguments, char *delimiters, char *redir_filename) {
+int redirection(char *line, char *argument_line, char *delimiters, char *redir_filename) {
     // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
     char *filename;
     char *redir_rest = line;
