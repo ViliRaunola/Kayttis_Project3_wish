@@ -80,14 +80,17 @@ int main(int argc, char *argv[]){
             
             parallel_counter = 0;
             if(strstr(line, "&")){
-                //Count how many times parallel processes have to be done
+                //Count how many times parallel processes have to be executed
+                // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
                 strcpy(parall_temp_line, line);
                 parall_rest = parall_temp_line;
                 if((parall_token = strtok_r(parall_rest, "&", &parall_rest))) {
+                    parallel_counter = 1;
                     while(parall_token != NULL) {
                         parall_token = strtok_r(parall_rest, "&", &parall_rest);
-                        // TODO: fix this does not work after & if something else than /n
-                        parallel_counter++;
+                        if (strtok(parall_token, delimiters)) {
+                            parallel_counter++;
+                        }
                     }
                 }
                 if (!parallel_counter){
