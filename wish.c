@@ -36,6 +36,9 @@ int main(int argc, char *argv[]){
     char delimiters[] = " \t\r\n\v\f>"; //Source: https://www.javaer101.com/en/article/12327171.html
     char *argument_line = NULL;
     char *arg_rest = NULL;
+    char *parall_rest = NULL;
+    char parall_temp_line[LEN];
+    char *parall_token = NULL;
     int arg_counter;
     int redir_flag = 0;
     int parallel_counter = 0; 
@@ -56,6 +59,7 @@ int main(int argc, char *argv[]){
       
     while(1){
         redir_flag = 0;
+        parallel_counter = 0;
         for(int i = 0; i < LEN; i++){
             arguments[i] = malloc(LEN * sizeof(char));
         }	
@@ -69,19 +73,23 @@ int main(int argc, char *argv[]){
             if(line_size == 1){
                 continue;
             }
-
-            //Count how many times parallel processes have to be done
-            if(strstr(line, "&")) {
-                parallel_counter = 0;
-                for(int j = 0; j < strlen(line); j++){
-                    if(line[j] == '&'){
+            line[strlen(line) - 1] = 0;
+            
+            parallel_counter = 0;
+            if(strstr(line, "&")){
+                //Count how many times parallel processes have to be done
+                strcpy(parall_temp_line, line);
+                parall_rest = parall_temp_line;
+                if((parall_token = strtok_r(parall_rest, "&", &parall_rest))) {
+                    while(parall_token != NULL) {
+                        parall_token = strtok_r(parall_rest, "&", &parall_rest);
                         parallel_counter++;
                     }
                 }
-            }
-
-            if(strstr(line, "&")){
-                
+                if (!parallel_counter){
+                    free_arguments(arguments);
+                    continue;
+                }
                 parse_for_parallel(arguments, line, delimiters);
                 if (arguments[0] == NULL) {
                     free_arguments(arguments);
@@ -89,9 +97,7 @@ int main(int argc, char *argv[]){
                 }
 
             }else{
-
                 argument_line = line;
-                //redir_rest = line;
                 redir_flag = redirection(line, argument_line, arguments, delimiters, redir_filename);
                 // redir_flag returns 2 if error
                 if (redir_flag == 2) {
