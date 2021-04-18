@@ -39,7 +39,7 @@ int main(int argc, char *argv[]){
     int redir_flag = 0;
     FILE *input_pointer;
 
-    if(argc == 1){
+    if(argc == 1) { 
         input_pointer = stdin;
     }else if (argc > 2){
         write(STDERR_FILENO, error_message, strlen(error_message));
