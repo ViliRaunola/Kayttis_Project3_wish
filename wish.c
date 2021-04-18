@@ -14,13 +14,15 @@
 #define PATH_CALL "path"
 
 const char error_message[30] = "An error has occurred\n";
+const char delimiters[] = " \t\r\n\v\f>"; //Source: https://www.javaer101.com/en/article/12327171.html
 
 void free_arguments(char *arguments[LEN]);
 void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer);
 void wish_cd(char *arguments[LEN], int arg_counter);
 int wish_path(char *default_path, char **arguments, int no_args);
-int redirection(char *line, char *argument_line, char *delimiters, char *redir_filename);
+int redirection(char *line, char *argument_line, char *redir_filename);
 void create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char *path);
+void parallel_process_counter(char *line, int *parallel_counter);
 
 int main(int argc, char *argv[]){
     //pid_t pid;
@@ -32,12 +34,8 @@ int main(int argc, char *argv[]){
     char default_path[PATH_LEN] = "/bin";
     char path[PATH_LEN];
     char redir_filename[LEN];
-    char delimiters[] = " \t\r\n\v\f>"; //Source: https://www.javaer101.com/en/article/12327171.html
     char *argument_line = NULL;
     char *arg_rest = NULL;
-    char *parall_rest = NULL;
-    char parall_temp_line[LEN];
-    char *parall_token = NULL;
     char *parall_parse_rest = NULL;
     char *parsed_arguments[LEN];
     char parsed_line[LEN];
@@ -80,19 +78,9 @@ int main(int argc, char *argv[]){
             
             parallel_counter = 0;
             if(strstr(line, "&")){
-                //Count how many times parallel processes have to be executed
-                // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
-                strcpy(parall_temp_line, line);
-                parall_rest = parall_temp_line;
-                if((parall_token = strtok_r(parall_rest, "&", &parall_rest))) {
-                    parallel_counter = 1;
-                    while(parall_token != NULL) {
-                        parall_token = strtok_r(parall_rest, "&", &parall_rest);
-                        if (strtok(parall_token, delimiters)) {
-                            parallel_counter++;
-                        }
-                    }
-                }
+
+                parallel_process_counter(line, &parallel_counter);
+
                 if (!parallel_counter){
                     free_arguments(arguments);
                     continue;
@@ -104,7 +92,7 @@ int main(int argc, char *argv[]){
 
             }else{
                 argument_line = line;
-                redir_flag = redirection(line, argument_line, delimiters, redir_filename);
+                redir_flag = redirection(line, argument_line, redir_filename);
                 // redir_flag returns 2 if error
                 if (redir_flag == 2) {
                     write(STDERR_FILENO, error_message, strlen(error_message));
@@ -169,7 +157,7 @@ int main(int argc, char *argv[]){
                 argument_line = parsed_line;
 
                 // checks if redirection is needed. Parses the arguments on the left of the ">" and the redirection filename on the right of the ">"
-                redir_flag = redirection(parsed_line, argument_line, delimiters, redir_filename);
+                redir_flag = redirection(parsed_line, argument_line, redir_filename);
                 // redir_flag returns 2 if error
                 if (redir_flag == 2) {
                     write(STDERR_FILENO, error_message, strlen(error_message));
@@ -261,7 +249,7 @@ int wish_path(char *default_path, char **arguments, int arg_counter) {
     return 0;
 }
 
-int redirection(char *line, char *argument_line, char *delimiters, char *redir_filename) {
+int redirection(char *line, char *argument_line, char *redir_filename) {
     // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
     char *filename;
     char *redir_rest = line;
@@ -330,5 +318,25 @@ void create_and_execute_child_process(int redir_flag, char *redir_filename, char
             break;
     default: //Parent process 
         break;
+    }
+}
+
+void parallel_process_counter(char *line, int *parallel_counter) {
+    //Count how many times parallel processes have to be executed
+    // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+    char parall_temp_line[LEN];
+    char *parall_rest, *parall_token;
+    strcpy(parall_temp_line, line);
+    *parallel_counter = 0;
+    parall_rest = parall_temp_line;
+
+    if((parall_token = strtok_r(parall_rest, "&", &parall_rest))) {
+        *parallel_counter = 1;
+        while(parall_token != NULL) {
+            parall_token = strtok_r(parall_rest, "&", &parall_rest);
+            if (strtok(parall_token, delimiters)) {
+                *parallel_counter += 1;
+            }
+        }
     }
 }
