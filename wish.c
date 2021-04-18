@@ -132,7 +132,7 @@ int main(int argc, char *argv[]){
                     //How to use open function with dup2. Source: https://www.youtube.com/watch?v=5fnVr-zH-SE&t=   
                     int output_file;
 
-                    if( (output_file = open(redir_filename, O_WRONLY | O_CREAT, 0777)) == -1){
+                    if( (output_file = open(redir_filename, O_WRONLY | O_CREAT | O_TRUNC , 0777)) == -1){
                         write(STDERR_FILENO, error_message, strlen(error_message));
                         free_arguments(arguments);
                         free(line);
