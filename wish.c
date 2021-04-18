@@ -67,8 +67,6 @@ int main(int argc, char *argv[]){
             if(line_size == 1){
                 continue;
             }
-            //Remove new line character from input
-            line[strlen(line) - 1] = 0;
             argument_line = line;
             redir_rest = line;
             redir_flag = redirection(line, argument_line, arguments, delimiters, redir_filename, redir_rest);
