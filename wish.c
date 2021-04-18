@@ -19,8 +19,9 @@ void free_arguments(char *arguments[LEN]);
 void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer);
 void wish_cd(char *arguments[LEN], int arg_counter);
 int wish_path(char *default_path, char **arguments, int no_args);
-int redirection(char *line, char *argument_line, char **arguments, char *delimiters, char *redir_filename, char *redir_rest);
+int redirection(char *line, char *argument_line, char **arguments, char *delimiters, char *redir_filename);
 void create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char *path);
+void parse_for_parallel(char **arguments, char *line, char *delimiters);
 
 int main(int argc, char *argv[]){
     //pid_t pid;
@@ -34,7 +35,7 @@ int main(int argc, char *argv[]){
     char redir_filename[LEN];
     char delimiters[] = " \t\r\n\v\f>"; //Source: https://www.javaer101.com/en/article/12327171.html
     char *argument_line = NULL;
-    char *redir_rest = NULL;
+    //char *redir_rest = NULL;
     char *arg_rest = NULL;
     int arg_counter; //status;
     int redir_flag = 0;
@@ -80,34 +81,45 @@ int main(int argc, char *argv[]){
                 }
             }
 
+            if(strstr(line, "&")){
                 
-            argument_line = line;
-            redir_rest = line;
-            redir_flag = redirection(line, argument_line, arguments, delimiters, redir_filename, redir_rest);
-            // redir_flag returns 2 if error
-            if (redir_flag == 2) {
-                write(STDERR_FILENO, error_message, strlen(error_message));
-                free_arguments(arguments);
-                continue;
-            }
+                parse_for_parallel(arguments, line, delimiters);
+                if (arguments[0] == NULL) {
+                    free_arguments(arguments);
+                    continue;
+                }
 
-            arg_rest = argument_line;
-            arg_counter = 0;
-            // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
-            while((token = strtok_r(arg_rest, delimiters, &arg_rest))){
-                strcpy(arguments[arg_counter], token);
-                arg_counter++;
-            }
+            }else{
 
-            //Memory slot has to be freed before being assigned to null so it wont be lost.
-            free(arguments[arg_counter]);
-            //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
-            arguments[arg_counter] =  NULL;
-            
-            //if no argument given with only whitespace on the given line
-            if (arguments[0] == NULL) {
-                free_arguments(arguments);
-                continue;
+                argument_line = line;
+                //redir_rest = line;
+                redir_flag = redirection(line, argument_line, arguments, delimiters, redir_filename);
+                // redir_flag returns 2 if error
+                if (redir_flag == 2) {
+                    write(STDERR_FILENO, error_message, strlen(error_message));
+                    free_arguments(arguments);
+                    continue;
+                }
+
+                arg_rest = argument_line;
+                arg_counter = 0;
+                // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+                while((token = strtok_r(arg_rest, delimiters, &arg_rest))){
+                    strcpy(arguments[arg_counter], token);
+                    arg_counter++;
+                }
+
+                //Memory slot has to be freed before being assigned to null so it wont be lost.
+                free(arguments[arg_counter]);
+                //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
+                arguments[arg_counter] =  NULL;
+                
+                //if no argument given with only whitespace on the given line
+                if (arguments[0] == NULL) {
+                    free_arguments(arguments);
+                    continue;
+                }
+
             }
 
         } else {
@@ -133,17 +145,80 @@ int main(int argc, char *argv[]){
             strcpy(path, default_path);
             strcat(path, "/");
             strcat(path, arguments[0]);
-            //The switch case structure was implemented from our homework assignment in week 10 task 3.
+            
 
+            int for_loop_counter = 0;
+            int placing_counter = 0;
 
+            for(int i = 0; i < parallel_counter; i++){
+                placing_counter = 0;
+                char *temp;
+                char *arguments2[LEN];
 
-            create_and_execute_child_process(redir_flag, redir_filename, arguments, line, path);
+                for(int x = 0; x < LEN; x++){
+                    arguments2[x] = malloc(LEN * sizeof(char));
+                }
+
+                
+                temp = arguments[for_loop_counter];
+               
+
+                while( temp != NULL ){
+                    strcpy(arguments2[placing_counter], temp);
+                    temp = arguments[for_loop_counter + 1];
+                    for_loop_counter++;
+                    placing_counter++;
+                }
+                for_loop_counter++;
+                free(arguments2[placing_counter]);
+                arguments2[placing_counter] = NULL;
+
+                char virtual_line[LEN];
+                int y = 0;
+                strcpy(virtual_line, arguments2[y]);
+                y++;
+                while(arguments2[y] != NULL){
+                    strcat(virtual_line, arguments2[y]);
+                    y++;
+                }
+
+                redir_flag = redirection(virtual_line, argument_line, arguments2, delimiters, redir_filename);
+
+                create_and_execute_child_process(redir_flag, redir_filename, arguments2, line, path);
+                free_arguments(arguments2);
+            }
+            if(parallel_counter < 1){
+                create_and_execute_child_process(redir_flag, redir_filename, arguments, line, path);
+            }
+            
+            
 
         }
         free_arguments(arguments);
     }
     return(0);
 }
+
+void parse_for_parallel(char *arguments[LEN], char *line, char *delimiters){
+    char *token, *token2;
+    int arg_counter = 0;
+    
+    while ((token = strtok_r(line, "&", &line))) {
+        // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+        while((token2 = strtok_r(token, delimiters, &token))){
+            strcpy(arguments[arg_counter], token2);
+            arg_counter++;
+        }
+        //Memory slot has to be freed before being assigned to null so it wont be lost.
+        free(arguments[arg_counter]);
+        //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
+        arguments[arg_counter] =  NULL;
+        arg_counter++;
+    }
+
+}
+
+
 
 void free_arguments(char *arguments[LEN]){
     for(int i = 0; i < LEN; i++){
@@ -185,9 +260,10 @@ int wish_path(char *default_path, char **arguments, int arg_counter) {
     return 0;
 }
 
-int redirection(char *line, char *argument_line, char **arguments, char *delimiters, char *redir_filename, char *redir_rest) {
+int redirection(char *line, char *argument_line, char **arguments, char *delimiters, char *redir_filename) {
     // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
     char *filename;
+    char *redir_rest = line;
     if(strstr(line, ">")) {
         argument_line = strtok_r(redir_rest, ">", &redir_rest);
         if (strstr(redir_rest, ">")) {
@@ -215,6 +291,7 @@ int redirection(char *line, char *argument_line, char **arguments, char *delimit
 void create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char *path){
     pid_t pid;
     int status;
+    //The switch case structure was implemented from our homework assignment in week 10 task 3.
     switch (pid = fork()){
     case -1:
         write(STDERR_FILENO, error_message, strlen(error_message));
