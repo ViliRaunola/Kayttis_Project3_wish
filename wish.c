@@ -38,6 +38,7 @@ int main(int argc, char *argv[]){
     char *arg_rest = NULL;
     int arg_counter; //status;
     int redir_flag = 0;
+    int parallel_counter = 0; 
     FILE *input_pointer;
 
     if(argc == 1){
@@ -68,6 +69,18 @@ int main(int argc, char *argv[]){
             if(line_size == 1){
                 continue;
             }
+
+            //Count how many times parallel processes have to be done
+            if(strstr(line, "&")) {
+                parallel_counter = 0;
+                for(int j = 0; j < strlen(line); j++){
+                    if(line[j] == '&'){
+                        parallel_counter++;
+                    }
+                }
+            }
+
+                
             argument_line = line;
             redir_rest = line;
             redir_flag = redirection(line, argument_line, arguments, delimiters, redir_filename, redir_rest);
@@ -85,16 +98,16 @@ int main(int argc, char *argv[]){
                 arg_counter++;
             }
 
-        //Memory slot has to be freed before being assigned to null so it wont be lost.
-        free(arguments[arg_counter]);
-        //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
-        arguments[arg_counter] =  NULL;
-        
-        //if no argument given with only whitespace on the given line
-        if (arguments[0] == NULL) {
-            free_arguments(arguments);
-            continue;
-        }
+            //Memory slot has to be freed before being assigned to null so it wont be lost.
+            free(arguments[arg_counter]);
+            //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
+            arguments[arg_counter] =  NULL;
+            
+            //if no argument given with only whitespace on the given line
+            if (arguments[0] == NULL) {
+                free_arguments(arguments);
+                continue;
+            }
 
         } else {
                 wish_exit(arguments, line, input_pointer);
@@ -120,6 +133,8 @@ int main(int argc, char *argv[]){
             strcat(path, "/");
             strcat(path, arguments[0]);
             //The switch case structure was implemented from our homework assignment in week 10 task 3.
+
+
 
             create_and_execute_child_process(redir_flag, redir_filename, arguments, line, path);
 
