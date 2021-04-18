@@ -20,9 +20,10 @@ void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer);
 void wish_cd(char *arguments[LEN], int arg_counter);
 int wish_path(char *default_path, char **arguments, int no_args);
 int redirection(char *line, char *argument_line, char **arguments, char *delimiters, char *redir_filename, char *redir_rest);
+void create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char *path);
 
 int main(int argc, char *argv[]){
-    pid_t pid;
+    //pid_t pid;
     size_t buffer_size = 0;
     ssize_t line_size;
     char *line = NULL;
@@ -35,7 +36,7 @@ int main(int argc, char *argv[]){
     char *argument_line = NULL;
     char *redir_rest = NULL;
     char *arg_rest = NULL;
-    int arg_counter, status;
+    int arg_counter; //status;
     int redir_flag = 0;
     FILE *input_pointer;
 
@@ -119,52 +120,9 @@ int main(int argc, char *argv[]){
             strcat(path, "/");
             strcat(path, arguments[0]);
             //The switch case structure was implemented from our homework assignment in week 10 task 3.
-            switch (pid = fork()){
-            case -1:
-                write(STDERR_FILENO, error_message, strlen(error_message));
-                break;
-            case 0: //The child prosess
 
-                if(redir_flag){
+            create_and_execute_child_process(redir_flag, redir_filename, arguments, line, path);
 
-                    //How to use open function with dup2. Source: https://www.youtube.com/watch?v=5fnVr-zH-SE&t=   
-                    int output_file;
-
-                    if( (output_file = open(redir_filename, O_WRONLY | O_CREAT | O_TRUNC , 0777)) == -1){
-                        write(STDERR_FILENO, error_message, strlen(error_message));
-                        free_arguments(arguments);
-                        free(line);
-                        exit(1);
-                    }
-
-                    dup2(output_file, STDOUT_FILENO); //Redirect stdout
-                    dup2(output_file, STDERR_FILENO); //Redirect stderr
-                    close(output_file);
-
-                    if (execv(path, arguments) == -1) {
-                        free_arguments(arguments);
-                        free(line);
-                        write(STDERR_FILENO, error_message, strlen(error_message));
-                        exit(0);    //Exiting the child when error happens and return back to the parent prosess.
-                    }
-
-                } else {
-                        if (execv(path, arguments) == -1) {
-                            free_arguments(arguments);
-                            free(line);
-                            write(STDERR_FILENO, error_message, strlen(error_message));
-                            exit(0);    //Exiting the child when error happens and return back to the parent prosess.
-                        }
-                    }
-                    break;
-            default: //Parent process
-
-                if (wait(&status) == -1) {	//Odottaa lapsen päättymistä
-                        perror("wait");
-                        exit(1);
-                }
-                break;
-            }
         }
         free_arguments(arguments);
     }
@@ -234,4 +192,58 @@ int redirection(char *line, char *argument_line, char **arguments, char *delimit
         return 1;
     }
     return 0;
+}
+
+
+
+void create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char *path){
+    pid_t pid;
+    int status;
+    switch (pid = fork()){
+    case -1:
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        break;
+    case 0: //The child prosess
+
+        if(redir_flag){
+
+            //How to use open function with dup2. Source: https://www.youtube.com/watch?v=5fnVr-zH-SE&t=   
+            int output_file;
+
+            if( (output_file = open(redir_filename, O_WRONLY | O_CREAT | O_TRUNC , 0777)) == -1){
+                write(STDERR_FILENO, error_message, strlen(error_message));
+                free_arguments(arguments);
+                free(line);
+                exit(1);
+            }
+
+            dup2(output_file, STDOUT_FILENO); //Redirect stdout
+            dup2(output_file, STDERR_FILENO); //Redirect stderr
+            close(output_file);
+
+            if (execv(path, arguments) == -1) {
+                free_arguments(arguments);
+                free(line);
+                write(STDERR_FILENO, error_message, strlen(error_message));
+                exit(0);    //Exiting the child when error happens and return back to the parent prosess.
+            }
+
+        } else {
+                if (execv(path, arguments) == -1) {
+                    free_arguments(arguments);
+                    free(line);
+                    write(STDERR_FILENO, error_message, strlen(error_message));
+                    exit(0);    //Exiting the child when error happens and return back to the parent prosess.
+                }
+            }
+            break;
+    default: //Parent process
+
+        if (wait(&status) == -1) {	//Odottaa lapsen päättymistä
+                perror("wait");
+                exit(1);
+        }
+        break;
+    }
+
 }
