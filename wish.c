@@ -35,14 +35,11 @@ int main(int argc, char *argv[]){
     char redir_filename[LEN];
     char delimiters[] = " \t\r\n\v\f>"; //Source: https://www.javaer101.com/en/article/12327171.html
     char *argument_line = NULL;
-    //char *redir_rest = NULL;
     char *arg_rest = NULL;
-    int arg_counter; //status;
+    int arg_counter;
     int redir_flag = 0;
     int parallel_counter = 0; 
-    int status;
     FILE *input_pointer;
-    pid_t c_pid;
 
     if(argc == 1){
         input_pointer = stdin;
@@ -144,14 +141,11 @@ int main(int argc, char *argv[]){
                 continue;
             } 
         } else {       
+            int for_loop_counter = 0;
+            int placing_counter = 0;
             strcpy(path, default_path);
             strcat(path, "/");
             strcat(path, arguments[0]);
-            
-
-            int for_loop_counter = 0;
-            int placing_counter = 0;
-
             //How to create multiple parallel child processes. Source: https://stackoverflow.com/questions/876605/multiple-child-process
             for(int i = 0; i < parallel_counter; i++){
                 placing_counter = 0;
@@ -186,22 +180,27 @@ int main(int argc, char *argv[]){
                 }
 
                 redir_flag = redirection(virtual_line, argument_line, arguments2, delimiters, redir_filename);
+                strcpy(path, default_path);
+                strcat(path, "/");
+                strcat(path, arguments2[0]);
 
                 create_and_execute_child_process(redir_flag, redir_filename, arguments2, line, path);
                 free_arguments(arguments2);
             }
             if(parallel_counter < 1){
                 create_and_execute_child_process(redir_flag, redir_filename, arguments, line, path);
-                if ( (wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
+                
+                if ((wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
                     perror("wait");
                 }
             }
-
+            
             for(int i = 0; i < parallel_counter; i++){
-                if ( (wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
+                if ((wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
                     perror("wait");
                 }
             }
+            
         }
 
 
@@ -301,18 +300,13 @@ int redirection(char *line, char *argument_line, char **arguments, char *delimit
 
 void create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char *path){
     pid_t pid;
-    int status;
-    pid_t c_pid;
     //The switch case structure was implemented from our homework assignment in week 10 task 3.
     switch (pid = fork()){
     case -1:
         write(STDERR_FILENO, error_message, strlen(error_message));
         break;
     case 0: //The child prosess
-
         if(redir_flag){
-           
-
             //How to use open function with dup2. Source: https://www.youtube.com/watch?v=5fnVr-zH-SE&t=   
             int output_file;
 
@@ -343,16 +337,7 @@ void create_and_execute_child_process(int redir_flag, char *redir_filename, char
                 }
             }
             break;
-    default: //Parent process
-        /*
-        if ( (c_pid = wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
-                perror("wait");
-                exit(1);
-        }
-
-        
-        printf("Stopped process: %d\n", c_pid);
-        */
+    default: //Parent process 
         break;
     }
 }
