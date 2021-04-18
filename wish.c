@@ -93,6 +93,7 @@ int main(int argc, char *argv[]){
 
             arg_rest = argument_line;
             arg_counter = 0;
+            // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
             while((token = strtok_r(arg_rest, delimiters, &arg_rest))){
                 strcpy(arguments[arg_counter], token);
                 arg_counter++;
