@@ -26,7 +26,7 @@ int main(int argc, char *argv[]){
     size_t buffer_size = 0;
     ssize_t line_size;
     char *line = NULL;
-    char *token;
+    char *token = NULL;
     char *arguments[LEN];
     char default_path[PATH_LEN] = "/bin";
     char path[PATH_LEN];
@@ -90,6 +90,13 @@ int main(int argc, char *argv[]){
         free(arguments[arg_counter]);
         //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
         arguments[arg_counter] =  NULL;
+        
+        //if no argument given with only whitespace on the given line
+        if (arguments[0] == NULL) {
+            free_arguments(arguments);
+            continue;
+        }
+
         } else {
                 wish_exit(arguments, line, input_pointer);
         }
