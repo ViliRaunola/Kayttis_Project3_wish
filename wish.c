@@ -21,7 +21,6 @@ void wish_cd(char *arguments[LEN], int arg_counter);
 int wish_path(char *default_path, char **arguments, int no_args);
 int redirection(char *line, char *argument_line, char *delimiters, char *redir_filename);
 void create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char *path);
-void parse_for_parallel(char **arguments, char *line, char *delimiters);
 
 int main(int argc, char *argv[]){
     //pid_t pid;
@@ -39,7 +38,11 @@ int main(int argc, char *argv[]){
     char *parall_rest = NULL;
     char parall_temp_line[LEN];
     char *parall_token = NULL;
-    int arg_counter;
+    char *parall_parse_rest = NULL;
+    char *parsed_arguments[LEN];
+    char parsed_line[LEN];
+    char *parall_parse_token = NULL;
+    int arg_counter = 0;
     int redir_flag = 0;
     int parallel_counter = 0; 
     FILE *input_pointer;
@@ -83,6 +86,7 @@ int main(int argc, char *argv[]){
                 if((parall_token = strtok_r(parall_rest, "&", &parall_rest))) {
                     while(parall_token != NULL) {
                         parall_token = strtok_r(parall_rest, "&", &parall_rest);
+                        // TODO: fix this does not work after & if something else than /n
                         parallel_counter++;
                     }
                 }
@@ -90,7 +94,6 @@ int main(int argc, char *argv[]){
                     free_arguments(arguments);
                     continue;
                 }
-                parse_for_parallel(arguments, line, delimiters);
                 if (arguments[0] == NULL) {
                     free_arguments(arguments);
                     continue;
@@ -147,51 +150,52 @@ int main(int argc, char *argv[]){
                 continue;
             } 
         } else {       
-            int for_loop_counter = 0;
-            int placing_counter = 0;
             strcpy(path, default_path);
             strcat(path, "/");
             strcat(path, arguments[0]);
             //How to create multiple parallel child processes. Source: https://stackoverflow.com/questions/876605/multiple-child-process
+            parall_parse_rest = line;
             for(int i = 0; i < parallel_counter; i++){
-                placing_counter = 0;
-                char *temp;
-                char *arguments2[LEN];
-
+                // creates new char pointer array for arguments between the '&' signs
                 for(int x = 0; x < LEN; x++){
-                    arguments2[x] = malloc(LEN * sizeof(char));
+                    parsed_arguments[x] = malloc(LEN * sizeof(char));
                 }
+                // parses the given arguments between the '&' signs
+                parall_parse_token = strtok_r(parall_parse_rest, "&", &parall_parse_rest);
+                strcpy(parsed_line, parall_parse_token);
+                argument_line = parsed_line;
 
+                // checks if redirection is needed. Parses the arguments on the left of the ">" and the redirection filename on the right of the ">"
+                redir_flag = redirection(parsed_line, argument_line, delimiters, redir_filename);
+                // redir_flag returns 2 if error
+                if (redir_flag == 2) {
+                    write(STDERR_FILENO, error_message, strlen(error_message));
+                    free_arguments(arguments);
+                    continue;
+                }
+                arg_rest = argument_line;
+                arg_counter = 0;
+                // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+                while((token = strtok_r(arg_rest, delimiters, &arg_rest))){
+                    strcpy(parsed_arguments[arg_counter], token);
+                    arg_counter++;
+                }
+                //Memory slot has to be freed before being assigned to null so it wont be lost.
+                free(parsed_arguments[arg_counter]);
+                //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
+                parsed_arguments[arg_counter] =  NULL;
                 
-                temp = arguments[for_loop_counter];
-               
-
-                while( temp != NULL ){
-                    strcpy(arguments2[placing_counter], temp);
-                    temp = arguments[for_loop_counter + 1];
-                    for_loop_counter++;
-                    placing_counter++;
+                //if no argument given with only whitespace on the given line
+                if (parsed_arguments[0] == NULL) {
+                    free_arguments(arguments);
+                    continue;
                 }
-                for_loop_counter++;
-                free(arguments2[placing_counter]);
-                arguments2[placing_counter] = NULL;
-
-                char virtual_line[LEN];
-                int y = 0;
-                strcpy(virtual_line, arguments2[y]);
-                y++;
-                while(arguments2[y] != NULL){
-                    strcat(virtual_line, arguments2[y]);
-                    y++;
-                }
-
-                redir_flag = redirection(virtual_line, argument_line, delimiters, redir_filename);
                 strcpy(path, default_path);
                 strcat(path, "/");
-                strcat(path, arguments2[0]);
+                strcat(path, parsed_arguments[0]);
 
-                create_and_execute_child_process(redir_flag, redir_filename, arguments2, line, path);
-                free_arguments(arguments2);
+                create_and_execute_child_process(redir_flag, redir_filename, parsed_arguments, line, path);
+                free_arguments(parsed_arguments);
             }
             if(parallel_counter < 1){
                 create_and_execute_child_process(redir_flag, redir_filename, arguments, line, path);
@@ -208,32 +212,10 @@ int main(int argc, char *argv[]){
             }
             
         }
-
-
         free_arguments(arguments);
     }
     return(0);
 }
-
-void parse_for_parallel(char *arguments[LEN], char *line, char *delimiters){
-    char *token, *token2;
-    int arg_counter = 0;
-    
-    while ((token = strtok_r(line, "&", &line))) {
-        // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
-        while((token2 = strtok_r(token, " \t\r\n\v\f", &token))){ //TODO: 
-            strcpy(arguments[arg_counter], token2);
-            arg_counter++;
-        }
-        //Memory slot has to be freed before being assigned to null so it wont be lost.
-        free(arguments[arg_counter]);
-        //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
-        arguments[arg_counter] =  NULL;
-        arg_counter++;
-    }
-
-}
-
 
 
 void free_arguments(char *arguments[LEN]){
