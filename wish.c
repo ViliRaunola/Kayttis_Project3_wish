@@ -142,6 +142,7 @@ int main(int argc, char *argv[]){
                 wish_exit(arguments, line, input_pointer, paths);
             }else{
                 write(STDERR_FILENO, error_message, strlen(error_message));
+                free_arguments(arguments);
                 continue;
             }
         } else if( !strcmp(arguments[0], CD_CALL) ){
