@@ -135,7 +135,7 @@ int main(int argc, char *argv[]){
                 wish_exit(arguments, line, input_pointer, paths);
         }
 
-        //Tähän kohtaa tarkistetaan onko oma vai systeemi kutsu
+        //Checking if the command is internal or not
         
         if (!strcmp(arguments[0], EXIT_CALL)){
             if(arg_counter == 1){
