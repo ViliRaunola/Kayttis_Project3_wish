@@ -1,7 +1,0 @@
-in.txt
-kt.txt
-k.txr
-k.txt
-temp
-wish
-wish.c

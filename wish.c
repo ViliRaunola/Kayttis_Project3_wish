@@ -82,6 +82,7 @@ int main(int argc, char *argv[]){
         if( (line_size = getline(&line, &buffer_size, input_pointer)) != -1) {
             //Program continues if only empty line is passed to it.
             if(line_size == 1){
+                free_arguments(arguments);
                 continue;
             }
             line[strlen(line) - 1] = 0;
@@ -128,11 +129,9 @@ int main(int argc, char *argv[]){
                     free_arguments(arguments);
                     continue;
                 }
-
             }
-
         } else {
-                wish_exit(arguments, line, input_pointer, paths);
+            wish_exit(arguments, line, input_pointer, paths);
         }
 
         //Checking if the command is internal or not
@@ -147,6 +146,8 @@ int main(int argc, char *argv[]){
             }
         } else if( !strcmp(arguments[0], CD_CALL) ){
             wish_cd(arguments, arg_counter);
+            free_arguments(arguments);
+            continue;
         } else if (!strcmp(arguments[0], PATH_CALL)) {
             wish_path(paths, arguments, arg_counter);
             free_arguments(arguments);
@@ -157,7 +158,6 @@ int main(int argc, char *argv[]){
             parall_parse_rest = line;
 
             if(parallel_counter < 1){
-
                 if ( !create_and_execute_child_process(redir_flag, redir_filename, arguments, line, paths) ){
                     free_arguments(arguments);
                     continue;
@@ -166,8 +166,9 @@ int main(int argc, char *argv[]){
                 if ((wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
                     perror("wait");
                 }
-
+                free_arguments(arguments);
             }else{
+                free_arguments(arguments);
                 for(int i = 0; i < parallel_counter; i++){
                     // creates new char pointer array for arguments between the '&' signs
                     for(int x = 0; x < LEN; x++){
@@ -183,7 +184,7 @@ int main(int argc, char *argv[]){
                     // redir_flag returns 2 if error
                     if (redir_flag == 2) {
                         write(STDERR_FILENO, error_message, strlen(error_message));
-                        free_arguments(arguments);
+                        free_arguments(parsed_arguments);
                         continue;
                     }
                     arg_rest = argument_line;
@@ -200,7 +201,7 @@ int main(int argc, char *argv[]){
                     
                     //if no argument given with only whitespace on the given line
                     if (parsed_arguments[0] == NULL) {
-                        free_arguments(arguments);
+                        free_arguments(parsed_arguments);
                         continue;
                     }
 
@@ -209,9 +210,7 @@ int main(int argc, char *argv[]){
                         continue;
                     }
                     free_arguments(parsed_arguments);
-
                 }
-           
                 for(int i = 0; i < parallel_counter; i++){
                     if ((wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
                         perror("wait");
@@ -219,7 +218,6 @@ int main(int argc, char *argv[]){
                 }
             }
         }
-        free_arguments(arguments);
     }
     return(0);
 }
