@@ -9,6 +9,7 @@
 #include <fcntl.h>      
 #define LEN 255
 #define PATH_LEN 255
+#define MAX_PATHS 10
 #define EXIT_CALL "exit"
 #define CD_CALL "cd"
 #define PATH_CALL "path"
@@ -17,22 +18,23 @@ const char error_message[30] = "An error has occurred\n";
 const char delimiters[] = " \t\r\n\v\f>"; //Source: https://www.javaer101.com/en/article/12327171.html
 
 void free_arguments(char *arguments[LEN]);
-void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer);
+void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer, char **paths);
 void wish_cd(char *arguments[LEN], int arg_counter);
-int wish_path(char *default_path, char **arguments, int no_args);
+int wish_path(char **paths, char **arguments, int arg_counter);
 int redirection(char *line, char *argument_line, char *redir_filename);
-void create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char *path);
+int create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char **paths);
 void parallel_process_counter(char *line, int *parallel_counter);
+void free_paths(char **paths);
+void alloc_memory_paths(char **paths);
 
 int main(int argc, char *argv[]){
-    //pid_t pid;
     size_t buffer_size = 0;
     ssize_t line_size;
     char *line = NULL;
     char *token = NULL;
     char *arguments[LEN];
-    char default_path[PATH_LEN] = "/bin";
-    char path[PATH_LEN];
+    char default_path[PATH_LEN] = "/bin/";
+    char *paths[MAX_PATHS];
     char redir_filename[LEN];
     char *argument_line = NULL;
     char *arg_rest = NULL;
@@ -56,7 +58,15 @@ int main(int argc, char *argv[]){
             exit(1);
         }
     }
+
+    for(int i = 0; i < MAX_PATHS; i++){
+        paths[i] = malloc(PATH_LEN * sizeof(char));
+    }	    
+    strcpy(paths[0], default_path);
+    free(paths[1]);
+    paths[1] = NULL;
     
+
       
     while(1){
         redir_flag = 0;
@@ -122,14 +132,14 @@ int main(int argc, char *argv[]){
             }
 
         } else {
-                wish_exit(arguments, line, input_pointer);
+                wish_exit(arguments, line, input_pointer, paths);
         }
 
         //Tähän kohtaa tarkistetaan onko oma vai systeemi kutsu
         
         if (!strcmp(arguments[0], EXIT_CALL)){
             if(arg_counter == 1){
-                wish_exit(arguments, line, input_pointer);
+                wish_exit(arguments, line, input_pointer, paths);
             }else{
                 write(STDERR_FILENO, error_message, strlen(error_message));
                 continue;
@@ -137,71 +147,75 @@ int main(int argc, char *argv[]){
         } else if( !strcmp(arguments[0], CD_CALL) ){
             wish_cd(arguments, arg_counter);
         } else if (!strcmp(arguments[0], PATH_CALL)) {
-            if(wish_path(default_path, arguments, arg_counter)) {
+            if(wish_path(paths, arguments, arg_counter)) {
                 continue;
             } 
-        } else {       
-            strcpy(path, default_path);
-            strcat(path, "/");
-            strcat(path, arguments[0]);
+        } else {    
             //How to create multiple parallel child processes. Source: https://stackoverflow.com/questions/876605/multiple-child-process
             parall_parse_rest = line;
-            for(int i = 0; i < parallel_counter; i++){
-                // creates new char pointer array for arguments between the '&' signs
-                for(int x = 0; x < LEN; x++){
-                    parsed_arguments[x] = malloc(LEN * sizeof(char));
-                }
-                // parses the given arguments between the '&' signs
-                parall_parse_token = strtok_r(parall_parse_rest, "&", &parall_parse_rest);
-                strcpy(parsed_line, parall_parse_token);
-                argument_line = parsed_line;
 
-                // checks if redirection is needed. Parses the arguments on the left of the ">" and the redirection filename on the right of the ">"
-                redir_flag = redirection(parsed_line, argument_line, redir_filename);
-                // redir_flag returns 2 if error
-                if (redir_flag == 2) {
-                    write(STDERR_FILENO, error_message, strlen(error_message));
-                    free_arguments(arguments);
-                    continue;
-                }
-                arg_rest = argument_line;
-                arg_counter = 0;
-                // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
-                while((token = strtok_r(arg_rest, delimiters, &arg_rest))){
-                    strcpy(parsed_arguments[arg_counter], token);
-                    arg_counter++;
-                }
-                //Memory slot has to be freed before being assigned to null so it wont be lost.
-                free(parsed_arguments[arg_counter]);
-                //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
-                parsed_arguments[arg_counter] =  NULL;
-                
-                //if no argument given with only whitespace on the given line
-                if (parsed_arguments[0] == NULL) {
-                    free_arguments(arguments);
-                    continue;
-                }
-                strcpy(path, default_path);
-                strcat(path, "/");
-                strcat(path, parsed_arguments[0]);
-
-                create_and_execute_child_process(redir_flag, redir_filename, parsed_arguments, line, path);
-                free_arguments(parsed_arguments);
-            }
             if(parallel_counter < 1){
-                create_and_execute_child_process(redir_flag, redir_filename, arguments, line, path);
+
+                if ( !create_and_execute_child_process(redir_flag, redir_filename, arguments, line, paths) ){
+                    free_arguments(arguments);
+                    continue;
+                }
                 
                 if ((wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
                     perror("wait");
                 }
-            }
-            
-            for(int i = 0; i < parallel_counter; i++){
-                if ((wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
-                    perror("wait");
+
+            }else{
+                for(int i = 0; i < parallel_counter; i++){
+                    // creates new char pointer array for arguments between the '&' signs
+                    for(int x = 0; x < LEN; x++){
+                        parsed_arguments[x] = malloc(LEN * sizeof(char));
+                    }
+                    // parses the given arguments between the '&' signs
+                    parall_parse_token = strtok_r(parall_parse_rest, "&", &parall_parse_rest);
+                    strcpy(parsed_line, parall_parse_token);
+                    argument_line = parsed_line;
+
+                    // checks if redirection is needed. Parses the arguments on the left of the ">" and the redirection filename on the right of the ">"
+                    redir_flag = redirection(parsed_line, argument_line, redir_filename);
+                    // redir_flag returns 2 if error
+                    if (redir_flag == 2) {
+                        write(STDERR_FILENO, error_message, strlen(error_message));
+                        free_arguments(arguments);
+                        continue;
+                    }
+                    arg_rest = argument_line;
+                    arg_counter = 0;
+                    // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+                    while((token = strtok_r(arg_rest, delimiters, &arg_rest))){
+                        strcpy(parsed_arguments[arg_counter], token);
+                        arg_counter++;
+                    }
+                    //Memory slot has to be freed before being assigned to null so it wont be lost.
+                    free(parsed_arguments[arg_counter]);
+                    //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
+                    parsed_arguments[arg_counter] =  NULL;
+                    
+                    //if no argument given with only whitespace on the given line
+                    if (parsed_arguments[0] == NULL) {
+                        free_arguments(arguments);
+                        continue;
+                    }
+
+                    if ( !create_and_execute_child_process(redir_flag, redir_filename, parsed_arguments, line, paths) ){
+                        free_arguments(parsed_arguments);
+                        continue;
+                    }
+                    free_arguments(parsed_arguments);
+
+                }
+           
+                for(int i = 0; i < parallel_counter; i++){
+                    if ((wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
+                        perror("wait");
+                    }
                 }
             }
-            
         }
         free_arguments(arguments);
     }
@@ -216,10 +230,11 @@ void free_arguments(char *arguments[LEN]){
 }
 
 
-void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer){
+void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer, char **paths){
     free_arguments(arguments);
     free(line);
     fclose(input_pointer);
+    free_paths(paths);
     exit(0);
 }
 
@@ -236,17 +251,39 @@ void wish_cd(char *arguments[LEN], int arg_counter){
 
 }
 
-
-int wish_path(char *default_path, char **arguments, int arg_counter) {
-    if (arg_counter == 1) {
-        strcpy(default_path, "");
-    } else if(arg_counter > 1) {
-        // luo lista patheja
-        strcpy(default_path, arguments[1]);
-        strcat(default_path, "/");
-        return 1;
+void free_paths(char **paths){
+    for(int i = 0; i < MAX_PATHS; i++){
+        free(paths[i]);
     }
-    return 0;
+}
+
+void alloc_memory_paths(char **paths){
+    for(int i = 0; i < MAX_PATHS; i++){
+        paths[i] = malloc(PATH_LEN * sizeof(char));
+    }	
+}
+
+int wish_path(char **paths, char **arguments, int arg_counter) {
+    int i = 0;
+    free_paths(paths);
+
+    alloc_memory_paths(paths);
+
+
+    if (arg_counter == 1) {
+        free(paths[0]);
+        paths[0] = NULL;
+    } else if(arg_counter > 1) {
+
+        for(i = 1; i < arg_counter; i++){
+            strcpy(paths[i-1], arguments[i]);
+            strcat(paths[i-1], "/");
+        }
+
+        free(paths[i-1]);
+        paths[i-1] = NULL;
+    }
+    return 1;
 }
 
 int redirection(char *line, char *argument_line, char *redir_filename) {
@@ -277,8 +314,25 @@ int redirection(char *line, char *argument_line, char *redir_filename) {
 
 
 
-void create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char *path){
+int create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char **paths){
     pid_t pid;
+    char path[PATH_LEN];
+    int valid_paths = 0;
+
+    int i = 0;
+    while ( paths[i] != NULL ) {
+        strcpy(path, paths[i]);
+        strcat(path, arguments[0]);
+        if( access(path, X_OK) == 0){
+            valid_paths = 1;
+            break;
+        }
+        i++;
+    }
+    if(!valid_paths){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        return(0);
+    }
     //The switch case structure was implemented from our homework assignment in week 10 task 3.
     switch (pid = fork()){
     case -1:
@@ -303,6 +357,7 @@ void create_and_execute_child_process(int redir_flag, char *redir_filename, char
             if (execv(path, arguments) == -1) {
                 free_arguments(arguments);
                 free(line);
+                free_paths(paths);
                 write(STDERR_FILENO, error_message, strlen(error_message));
                 exit(0);    //Exiting the child when error happens and return back to the parent prosess.
             }
@@ -311,6 +366,7 @@ void create_and_execute_child_process(int redir_flag, char *redir_filename, char
                 if (execv(path, arguments) == -1) {
                     free_arguments(arguments);
                     free(line);
+                    free_paths(paths);
                     write(STDERR_FILENO, error_message, strlen(error_message));
                     exit(0);    //Exiting the child when error happens and return back to the parent prosess.
                 }
@@ -319,6 +375,8 @@ void create_and_execute_child_process(int redir_flag, char *redir_filename, char
     default: //Parent process 
         break;
     }
+
+    return(1);
 }
 
 void parallel_process_counter(char *line, int *parallel_counter) {
@@ -330,13 +388,14 @@ void parallel_process_counter(char *line, int *parallel_counter) {
     *parallel_counter = 0;
     parall_rest = parall_temp_line;
 
-    if((parall_token = strtok_r(parall_rest, "&", &parall_rest))) {
-        *parallel_counter = 1;
+  if((parall_token = strtok_r(parall_rest, "&", &parall_rest))) {
         while(parall_token != NULL) {
-            parall_token = strtok_r(parall_rest, "&", &parall_rest);
-            if (strtok(parall_token, delimiters)) {
+            if (strtok(parall_token, delimiters) != NULL) {
                 *parallel_counter += 1;
+            } else {
+                break;
             }
+            parall_token = strtok_r(parall_rest, "&", &parall_rest);
         }
     }
 }
