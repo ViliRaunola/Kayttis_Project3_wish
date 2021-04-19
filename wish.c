@@ -20,7 +20,7 @@ const char delimiters[] = " \t\r\n\v\f>"; //Source: https://www.javaer101.com/en
 void free_arguments(char *arguments[LEN]);
 void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer, char **paths);
 void wish_cd(char *arguments[LEN], int arg_counter);
-int wish_path(char **paths, char **arguments, int arg_counter);
+void wish_path(char **paths, char **arguments, int arg_counter);
 int redirection(char *line, char *argument_line, char *redir_filename);
 int create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char **paths);
 void parallel_process_counter(char *line, int *parallel_counter);
@@ -147,9 +147,10 @@ int main(int argc, char *argv[]){
         } else if( !strcmp(arguments[0], CD_CALL) ){
             wish_cd(arguments, arg_counter);
         } else if (!strcmp(arguments[0], PATH_CALL)) {
-            if(wish_path(paths, arguments, arg_counter)) {
-                continue;
-            } 
+            wish_path(paths, arguments, arg_counter);
+            free_arguments(arguments);
+            continue;
+             
         } else {    
             //How to create multiple parallel child processes. Source: https://stackoverflow.com/questions/876605/multiple-child-process
             parall_parse_rest = line;
@@ -263,7 +264,7 @@ void alloc_memory_paths(char **paths){
     }	
 }
 
-int wish_path(char **paths, char **arguments, int arg_counter) {
+void wish_path(char **paths, char **arguments, int arg_counter) {
     int i = 0;
     free_paths(paths);
 
@@ -283,7 +284,6 @@ int wish_path(char **paths, char **arguments, int arg_counter) {
         free(paths[i-1]);
         paths[i-1] = NULL;
     }
-    return 1;
 }
 
 int redirection(char *line, char *argument_line, char *redir_filename) {
