@@ -9,13 +9,16 @@
 #include <fcntl.h>      
 #define LEN 255
 #define PATH_LEN 255
-#define MAX_PATHS 10
+#define MAX_PATHS 20
 #define EXIT_CALL "exit"
 #define CD_CALL "cd"
 #define PATH_CALL "path"
 
 const char error_message[30] = "An error has occurred\n";
-const char delimiters[] = " \t\r\n\v\f>"; //Source: https://www.javaer101.com/en/article/12327171.html
+
+//Source: https://www.javaer101.com/en/article/12327171.html
+// used for parsing input string
+const char delimiters[] = " \t\r\n\v\f>"; 
 
 void free_arguments(char *arguments[LEN]);
 void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer, char **paths);
@@ -50,18 +53,18 @@ int main(int argc, char *argv[]){
     if(argc == 1){
         input_pointer = stdin;
     }else if (argc > 2){
-        write(STDERR_FILENO, error_message, strlen(error_message));
+        //write(STDERR_FILENO, error_message, strlen(error_message));
+        fprintf(stderr, "wish: Too many arguments\n");
         exit(1);
     }else{
         if( (input_pointer = fopen(argv[1], "r")) == NULL ){
-            write(STDERR_FILENO, error_message, strlen(error_message));
+            //write(STDERR_FILENO, error_message, strlen(error_message));
+            perror("wish: cannot open file");
             exit(1);
         }
     }
 
-    for(int i = 0; i < MAX_PATHS; i++){
-        paths[i] = malloc(PATH_LEN * sizeof(char));
-    }	    
+    alloc_memory_paths(paths);
     strcpy(paths[0], default_path);
     free(paths[1]);
     paths[1] = NULL;
@@ -106,7 +109,7 @@ int main(int argc, char *argv[]){
                 redir_flag = redirection(line, argument_line, redir_filename);
                 // redir_flag returns 2 if error
                 if (redir_flag == 2) {
-                    write(STDERR_FILENO, error_message, strlen(error_message));
+                    //write(STDERR_FILENO, error_message, strlen(error_message));
                     free_arguments(arguments);
                     continue;
                 }
@@ -140,7 +143,8 @@ int main(int argc, char *argv[]){
             if(arg_counter == 1){
                 wish_exit(arguments, line, input_pointer, paths);
             }else{
-                write(STDERR_FILENO, error_message, strlen(error_message));
+                //write(STDERR_FILENO, error_message, strlen(error_message));
+                fprintf(stderr, "Error: Too many arguments to exit\n");
                 free_arguments(arguments);
                 continue;
             }
@@ -183,7 +187,7 @@ int main(int argc, char *argv[]){
                     redir_flag = redirection(parsed_line, argument_line, redir_filename);
                     // redir_flag returns 2 if error
                     if (redir_flag == 2) {
-                        write(STDERR_FILENO, error_message, strlen(error_message));
+                        //write(STDERR_FILENO, error_message, strlen(error_message));
                         free_arguments(parsed_arguments);
                         continue;
                     }
@@ -242,10 +246,12 @@ void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer, char **pat
 void wish_cd(char *arguments[LEN], int arg_counter){
     //Check that only one argument is supplied to the cd command
     if(arg_counter != 2){
-        write(STDERR_FILENO, error_message, strlen(error_message));
+        //write(STDERR_FILENO, error_message, strlen(error_message));
+        fprintf(stderr, "Error: One and only one argument is allowed with the command 'cd'\n");
     }else{
         if(chdir(arguments[1]) == -1){  //If only one command was set for cd the current directory will be changed using chdir()
-            write(STDERR_FILENO, error_message, strlen(error_message));
+            //write(STDERR_FILENO, error_message, strlen(error_message));
+            perror("cd");
         }
     }
 
@@ -266,20 +272,18 @@ void alloc_memory_paths(char **paths){
 void wish_path(char **paths, char **arguments, int arg_counter) {
     int i = 0;
     free_paths(paths);
-
     alloc_memory_paths(paths);
 
-
-    if (arg_counter == 1) {
+    if(arg_counter-1 > MAX_PATHS) {
+        fprintf(stderr, "Error: Too many paths given. Max %d\n", MAX_PATHS);
+    } else if (arg_counter == 1) {
         free(paths[0]);
         paths[0] = NULL;
     } else if(arg_counter > 1) {
-
         for(i = 1; i < arg_counter; i++){
             strcpy(paths[i-1], arguments[i]);
             strcat(paths[i-1], "/");
         }
-
         free(paths[i-1]);
         paths[i-1] = NULL;
     }
@@ -293,16 +297,19 @@ int redirection(char *line, char *argument_line, char *redir_filename) {
         argument_line = strtok_r(redir_rest, ">", &redir_rest);
         if (strstr(redir_rest, ">")) {
             // too many redirect signs
+            fprintf(stderr, "Error: Too many redirection signs\n");
             return 2;
         } 
         //checks if a filename has been given to redirect to
         if ((filename = strtok_r(redir_rest, delimiters, &redir_rest))) {
             if (strtok_r(redir_rest, delimiters, &redir_rest) != NULL) {
                 //Too many arguments for redirect
+                fprintf(stderr, "Error: Too many arguments after redirection sign\n");
                 return 2;
             }
         } else {
             // no file given
+            fprintf(stderr, "Error: No redirection filename\n");
             return 2;
         }
         strcpy(redir_filename, filename);
@@ -329,13 +336,15 @@ int create_and_execute_child_process(int redir_flag, char *redir_filename, char 
         i++;
     }
     if(!valid_paths){
-        write(STDERR_FILENO, error_message, strlen(error_message));
+        //write(STDERR_FILENO, error_message, strlen(error_message));
+        fprintf(stderr, "Error: command not found in any of the paths\n");
         return(0);
     }
     //The switch case structure was implemented from our homework assignment in week 10 task 3.
     switch (pid = fork()){
     case -1:
-        write(STDERR_FILENO, error_message, strlen(error_message));
+        //write(STDERR_FILENO, error_message, strlen(error_message));
+        perror("fork");
         break;
     case 0: //The child prosess
         if(redir_flag){
@@ -343,7 +352,8 @@ int create_and_execute_child_process(int redir_flag, char *redir_filename, char 
             int output_file;
 
             if( (output_file = open(redir_filename, O_WRONLY | O_CREAT | O_TRUNC , 0777)) == -1){
-                write(STDERR_FILENO, error_message, strlen(error_message));
+                //write(STDERR_FILENO, error_message, strlen(error_message));
+                fprintf(stderr, "Error: cannot open redirection output file\n");
                 free_arguments(arguments);
                 free(line);
                 exit(1);
@@ -357,7 +367,8 @@ int create_and_execute_child_process(int redir_flag, char *redir_filename, char 
                 free_arguments(arguments);
                 free(line);
                 free_paths(paths);
-                write(STDERR_FILENO, error_message, strlen(error_message));
+                //write(STDERR_FILENO, error_message, strlen(error_message));
+                perror("execv");
                 exit(0);    //Exiting the child when error happens and return back to the parent prosess.
             }
 
@@ -366,7 +377,8 @@ int create_and_execute_child_process(int redir_flag, char *redir_filename, char 
                     free_arguments(arguments);
                     free(line);
                     free_paths(paths);
-                    write(STDERR_FILENO, error_message, strlen(error_message));
+                    //write(STDERR_FILENO, error_message, strlen(error_message));
+                    perror("execv");
                     exit(0);    //Exiting the child when error happens and return back to the parent prosess.
                 }
             }
