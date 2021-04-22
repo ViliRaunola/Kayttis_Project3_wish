@@ -1,3 +1,4 @@
+/* Project 3: Unix Shell */
 /* wish.c */
 /* Jesse Pasanen 0545937 */
 /* Vili Raunola 0543366 */
@@ -19,9 +20,10 @@
 #define CD_CALL "cd"
 #define PATH_CALL "path"
 
-const char error_message[30] = "An error has occurred\n";
+// Error message used for tests. Commented out and replaced with custom ones through out the file
+//const char error_message[30] = "An error has occurred\n";
 
-//Source: https://www.javaer101.com/en/article/12327171.html
+// Source: https://www.javaer101.com/en/article/12327171.html
 // used for parsing input string
 const char delimiters[] = " \t\r\n\v\f>"; 
 
