@@ -35,16 +35,18 @@ void free_paths(char **paths);
 void alloc_memory_paths(char **paths);
 
 int main(int argc, char *argv[]){
-    size_t buffer_size = 0; //Used in getline
-    ssize_t line_size;  //Used in getline
+    /* used in getline() */
+    size_t buffer_size = 0; 
+    ssize_t line_size;  
     char *line = NULL;
-    char *token = NULL;
-    char *arguments[LEN];
+
     char default_path[PATH_LEN] = "/bin/";
     char *paths[MAX_PATHS];
     char redir_filename[LEN];
     char *argument_line = NULL;
     char *arg_rest = NULL;
+    char *token = NULL;
+    char *arguments[LEN];
     char *parall_parse_rest = NULL;
     char *parsed_arguments[LEN];
     char parsed_line[LEN];
@@ -55,8 +57,8 @@ int main(int argc, char *argv[]){
     FILE *input_pointer;
 
     //Cecking if the program was ran with script file
-    //If the program was launched with out any arguments stdin is given to input pointer
-    //If there was an addittional argument given then the input pointer will be a pointer to a file from where the reading will be done in same manner as in normal user input mode.
+    //If the program was launched without any arguments stdin is given to input pointer
+    //If there was an additional argument given then the input pointer will be a pointer to a file from where the reading will be done in the same manner as in normal user input mode.
     if(argc == 1){
         input_pointer = stdin;
     }else if (argc > 2){
@@ -99,19 +101,19 @@ int main(int argc, char *argv[]){
         
         //How to use getline: man getline
         if( (line_size = getline(&line, &buffer_size, input_pointer)) != -1) {
-            //Program ignores the input if line change is given as an input
+            //Program ignores the input if only whitespace is given as an input
             if(line_size == 1){
                 free_arguments(arguments);
                 continue;
             }
 
-            //Removing the line change character from read line
+            //Removing the newline character from the read line
             line[strlen(line) - 1] = 0;
             
-            //If parallell character "&" is found in the given input the program will determine how many of them were given and thus will know how many child prosesses to create
+            //If parallel character "&" is found in the given input the program will determine how many of them were given and thus will know how many child processes to create
             if(strstr(line, "&")){
 
-                //TODO: Commenting
+                // calculates the amount of processes
                 parallel_process_counter(line, &parallel_counter);
 
                 if (!parallel_counter){
@@ -127,14 +129,16 @@ int main(int argc, char *argv[]){
                 //Assigning the read line to argument_line which will be given to redirection function
                 argument_line = line;
                 redir_flag = redirection(line, argument_line, redir_filename);
-                // redir_flag returns 2 if error
+                // redirection() returns 2 if error
                 if (redir_flag == 2) {
                     //write(STDERR_FILENO, error_message, strlen(error_message));
                     free_arguments(arguments);
                     continue;
                 }
 
-                //Rest of the arguments after the ">" redirection character will be in the argument_line after the redirection function so now the variable is renamed for clarity
+                // arg_rest is used to indicate the rest of the line that is being parsed in the while-loop with strtok_r().
+                // First it is the whole line and in the while -loop it is being iterated through
+                // Token is always what is before the delimiter and arg_rest is what is after it
                 arg_rest = argument_line;
                 //arg_counter is used to determine in which position NULL should be assigned in arguments char pointer array
                 arg_counter = 0;
@@ -159,7 +163,7 @@ int main(int argc, char *argv[]){
             wish_exit(arguments, line, input_pointer, paths);
         }
 
-        //Checking if the command is internal or not
+        //Checking if the command is a build-in command
         
         //Check first for exit function
         if (!strcmp(arguments[0], EXIT_CALL)){
@@ -172,21 +176,22 @@ int main(int argc, char *argv[]){
                 free_arguments(arguments);
                 continue;
             }
-        //Check for internal cd function
+        //Check for build-in cd function
         } else if( !strcmp(arguments[0], CD_CALL) ){
             wish_cd(arguments, arg_counter);
             free_arguments(arguments);
             continue;
-        //Check for internal path funciton
+        //Check for build-in path function
         } else if (!strcmp(arguments[0], PATH_CALL)) {
             wish_path(paths, arguments, arg_counter);
             free_arguments(arguments);
             continue;
-        //If the command wasn't internal a child process will be created and the command will be executed by execv   
+        //If the command wasn't build-in a child process will be created and the command will be executed by execv   
         } else {    
             //How to create multiple parallel child processes. Source: https://stackoverflow.com/questions/876605/multiple-child-process
 
-            //Renaming the read line
+            // parall_parse_rest is used to indicate the rest of the line that is being parsed in the for-loop with strtok_r().
+            // First it is the whole line and in the for -loop it is being iterated through
             parall_parse_rest = line;
 
             //If there is no need for parallelism, only one child process will be created
@@ -216,26 +221,30 @@ int main(int argc, char *argv[]){
                         parsed_arguments[x] = malloc(LEN * sizeof(char));
                     }
 
-                    // Parses the given arguments between the '&' signs
+                    // Parses the given command and arguments between the '&' signs
+                    // In parall_parse_token the command and arguments before each "&" sign is saved
                     parall_parse_token = strtok_r(parall_parse_rest, "&", &parall_parse_rest);
                     strcpy(parsed_line, parall_parse_token);
                     argument_line = parsed_line;
 
                     // Checks if redirection is needed. Parses the arguments on the left of the ">" and the redirection filename on the right of the ">"
                     redir_flag = redirection(parsed_line, argument_line, redir_filename);
-                    // redir_flag returns 2 if error
+                    // redirection() returns 2 if error
                     if (redir_flag == 2) {
                         //write(STDERR_FILENO, error_message, strlen(error_message));
                         free_arguments(parsed_arguments);
                         continue;
                     }
-                    //Renaming the argument_line to add more clarity
+
+                    // arg_rest is used to indicate the rest of the line that is being parsed in the while-loop with strtok_r().
+                    // First it is the whole line and in the while -loop it is being iterated through
+                    // Token is always what is before the delimiter and arg_rest is what is after it
                     arg_rest = argument_line;
 
                     //Resetting the counter in each loop
                     arg_counter = 0;
 
-                    //Remainder of the line will be split between wihte spaces and stored to char pointer array called parsed_arguments which is used to give the command's arguments to execv.
+                    //Remainder of the line will be split between whitespaces and stored to char pointer array called parsed_arguments which is used to give the command and arguments to execv.
                     //How to use strok_r and with multiple delimeters. Source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
                     while((token = strtok_r(arg_rest, delimiters, &arg_rest))){
                         strcpy(parsed_arguments[arg_counter], token);
@@ -260,7 +269,7 @@ int main(int argc, char *argv[]){
                     }
                     free_arguments(parsed_arguments);
                 }
-                //Waiting for every single child to finish before continuing so that the out puts are printed before the user can continue with wish
+                //Waiting for every single child to finish before continuing so that the outputs are printed before the user can continue with wish
                 //Source for waiting all the child processes: https://stackoverflow.com/questions/876605/multiple-child-process
                 //How to use wait(NULL). Source: https://www.geeksforgeeks.org/wait-system-call-c/
                 for(int i = 0; i < parallel_counter; i++){
@@ -281,7 +290,7 @@ void free_arguments(char *arguments[LEN]){
     }
 }
 
-//Internal exit command. Frees all the memory allocations so no leaks would happen when exiting.
+//Build-in exit command. Frees all the memory allocations so no leaks would happen when exiting.
 //Exit will be given argument 0 to tell that the exit was normal and not due to error 
 void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer, char **paths){
     free_arguments(arguments);
@@ -291,7 +300,7 @@ void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer, char **pat
     exit(0);
 }
 
-//Internal cd command to change the current working directory.
+//Build-in cd command to change the current working directory.
 //Instructions on how to use chdir() in c: https://www.geeksforgeeks.org/chdir-in-c-language-with-examples/
 void wish_cd(char *arguments[LEN], int arg_counter){
     //Check that only one argument is supplied to the cd command
@@ -316,14 +325,14 @@ void free_paths(char **paths){
     }
 }
 
-//Allocates memory for whish's paths in a char pointer array
+//Allocates memory for wish's paths in a char pointer array
 void alloc_memory_paths(char **paths){
     for(int i = 0; i < MAX_PATHS; i++){
         paths[i] = malloc(PATH_LEN * sizeof(char));
     }	
 }
 
-//Internal command to overwrite the default path from which whish will try to run the commands from
+//Build-in command to overwrite the default path from which whish will try to run the commands from
 void wish_path(char **paths, char **arguments, int arg_counter) {
     int i = 0;
 
@@ -352,9 +361,8 @@ void wish_path(char **paths, char **arguments, int arg_counter) {
         paths[i-1] = NULL;
     }
 }
-
-//TODO: add more comments?
-//Function to parse the read line if redirection is needed
+// Function checks if there are redirection signs in the given input
+// If so, parses the input command and arguments from the right side of the ">" and the filename from the left side of the ">"
 int redirection(char *line, char *argument_line, char *redir_filename) {
     // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
     char *filename;
@@ -374,7 +382,7 @@ int redirection(char *line, char *argument_line, char *redir_filename) {
                 return 2;
             }
         } else {
-            // no file given
+            // no namefile given
             fprintf(stderr, "Error: No redirection filename\n");
             return 2;
         }
@@ -430,9 +438,18 @@ int create_and_execute_child_process(int redir_flag, char *redir_filename, char 
                 exit(1);
             }
 
-            //TODO: add error handling?
-            dup2(output_file, STDOUT_FILENO); //Redirect stdout
-            dup2(output_file, STDERR_FILENO); //Redirect stderr
+            if ((dup2(output_file, STDOUT_FILENO)) == -1) { //Redirect stdout
+                perror("dub2");
+                free_arguments(arguments);
+                free(line);
+                exit(1);
+            } 
+            if ((dup2(output_file, STDERR_FILENO)) == -1) { //Redirect stderr
+                perror("dub2");
+                free_arguments(arguments);
+                free(line);
+                exit(1);
+            } 
             close(output_file);
 
             //Error handling for execv
@@ -464,18 +481,22 @@ int create_and_execute_child_process(int redir_flag, char *redir_filename, char 
     return(1);
 }
 
-//TODO: add comments
+    //Counts how many times parallel processes have to be executed
 void parallel_process_counter(char *line, int *parallel_counter) {
-    //Count how many times parallel processes have to be executed
     // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
     char parall_temp_line[LEN];
     char *parall_rest, *parall_token;
+    // line is copied into a new variable so the pointer doesn't move in the 'line'-variable
     strcpy(parall_temp_line, line);
     *parallel_counter = 0;
     parall_rest = parall_temp_line;
-
-  if((parall_token = strtok_r(parall_rest, "&", &parall_rest))) {
+    // parall_rest is used to indicate the rest of the line that is being parsed in the while-loop with strtok_r().
+    // First it is the whole line and in the while -loop it is being iterated through
+    // parall_token is always what is before the delimiter ("&") and parall_rest is what is after it
+    // checks each command and arguments given between "&" signs and calculates the amount
+    if((parall_token = strtok_r(parall_rest, "&", &parall_rest))) {
         while(parall_token != NULL) {
+            //checks whether or not there is a command after the last "&" sign
             if (strtok(parall_token, delimiters) != NULL) {
                 *parallel_counter += 1;
             } else {
