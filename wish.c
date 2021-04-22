@@ -1,3 +1,7 @@
+/* wish.c */
+/* Jesse Pasanen 0545937 */
+/* Vili Raunola 0543366 */
+
 /* Source: https://stackoverflow.com/questions/59014090/warning-implicit-declaration-of-function-getline */
 /* error with getline() solved with '#define  _POSIX_C_SOURCE 200809L' */
 #define  _POSIX_C_SOURCE 200809L
@@ -31,8 +35,8 @@ void free_paths(char **paths);
 void alloc_memory_paths(char **paths);
 
 int main(int argc, char *argv[]){
-    size_t buffer_size = 0;
-    ssize_t line_size;
+    size_t buffer_size = 0; //Used in getline
+    ssize_t line_size;  //Used in getline
     char *line = NULL;
     char *token = NULL;
     char *arguments[LEN];
@@ -50,6 +54,9 @@ int main(int argc, char *argv[]){
     int parallel_counter = 0; 
     FILE *input_pointer;
 
+    //Cecking if the program was ran with script file
+    //If the program was launched with out any arguments stdin is given to input pointer
+    //If there was an addittional argument given then the input pointer will be a pointer to a file from where the reading will be done in same manner as in normal user input mode.
     if(argc == 1){
         input_pointer = stdin;
     }else if (argc > 2){
@@ -64,35 +71,47 @@ int main(int argc, char *argv[]){
         }
     }
 
+    //Creating a char pointer array for paths and assigning default path "/bin/" to the start of the list
     alloc_memory_paths(paths);
     strcpy(paths[0], default_path);
+    //Memory slot has to be freed before being assigned to null so it wont be lost.
     free(paths[1]);
+    //Assinging NULL so the end of the list is known
     paths[1] = NULL;
     
 
       
     while(1){
+        //Setting flags to 0 at the start of each loop
         redir_flag = 0;
         parallel_counter = 0;
+
+        //Allocating memory for the arguments, char pointer array.
+        //All the arguments will be saved here from each read line.
         for(int i = 0; i < LEN; i++){
             arguments[i] = malloc(LEN * sizeof(char));
         }	
 
+        //If the program was ran without a file, a text is shown for the user so they know when to give input
         if(argc == 1){
             printf("wish> ");
         }
         
+        //How to use getline: man getline
         if( (line_size = getline(&line, &buffer_size, input_pointer)) != -1) {
-            //Program continues if only empty line is passed to it.
+            //Program ignores the input if line change is given as an input
             if(line_size == 1){
                 free_arguments(arguments);
                 continue;
             }
+
+            //Removing the line change character from read line
             line[strlen(line) - 1] = 0;
             
-            parallel_counter = 0;
+            //If parallell character "&" is found in the given input the program will determine how many of them were given and thus will know how many child prosesses to create
             if(strstr(line, "&")){
 
+                //TODO: Commenting
                 parallel_process_counter(line, &parallel_counter);
 
                 if (!parallel_counter){
@@ -105,6 +124,7 @@ int main(int argc, char *argv[]){
                 }
 
             }else{
+                //Assigning the read line to argument_line which will be given to redirection function
                 argument_line = line;
                 redir_flag = redirection(line, argument_line, redir_filename);
                 // redir_flag returns 2 if error
@@ -114,9 +134,11 @@ int main(int argc, char *argv[]){
                     continue;
                 }
 
+                //Rest of the arguments after the ">" redirection character will be in the argument_line after the redirection function so now the variable is renamed for clarity
                 arg_rest = argument_line;
+                //arg_counter is used to determine in which position NULL should be assigned in arguments char pointer array
                 arg_counter = 0;
-                // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+                //How to use strtok_r with multiple delimeters source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
                 while((token = strtok_r(arg_rest, delimiters, &arg_rest))){
                     strcpy(arguments[arg_counter], token);
                     arg_counter++;
@@ -139,7 +161,9 @@ int main(int argc, char *argv[]){
 
         //Checking if the command is internal or not
         
+        //Check first for exit function
         if (!strcmp(arguments[0], EXIT_CALL)){
+            //If there are any arguments given to the exit call it will be ignored and error given to the user
             if(arg_counter == 1){
                 wish_exit(arguments, line, input_pointer, paths);
             }else{
@@ -148,42 +172,56 @@ int main(int argc, char *argv[]){
                 free_arguments(arguments);
                 continue;
             }
+        //Check for internal cd function
         } else if( !strcmp(arguments[0], CD_CALL) ){
             wish_cd(arguments, arg_counter);
             free_arguments(arguments);
             continue;
+        //Check for internal path funciton
         } else if (!strcmp(arguments[0], PATH_CALL)) {
             wish_path(paths, arguments, arg_counter);
             free_arguments(arguments);
             continue;
-             
+        //If the command wasn't internal a child process will be created and the command will be executed by execv   
         } else {    
             //How to create multiple parallel child processes. Source: https://stackoverflow.com/questions/876605/multiple-child-process
+
+            //Renaming the read line
             parall_parse_rest = line;
 
+            //If there is no need for parallelism, only one child process will be created
             if(parallel_counter < 1){
                 if ( !create_and_execute_child_process(redir_flag, redir_filename, arguments, line, paths) ){
                     free_arguments(arguments);
                     continue;
                 }
                 
-                if ((wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
+                //Have to wait for the child process to finish
+                //How to use wait(NULL). Source: https://www.geeksforgeeks.org/wait-system-call-c/
+                if ((wait(NULL)) == -1) {	
                     perror("wait");
                 }
+
                 free_arguments(arguments);
+            //If parallelism is needed, mulitple child processes will be created
             }else{
+                //Freeing the arguments char pointer array becuase it is not needed anymore
                 free_arguments(arguments);
+
+                //Creating as many child processes as needed
                 for(int i = 0; i < parallel_counter; i++){
-                    // creates new char pointer array for arguments between the '&' signs
+
+                    // Creates new char pointer array for arguments between the '&' signs
                     for(int x = 0; x < LEN; x++){
                         parsed_arguments[x] = malloc(LEN * sizeof(char));
                     }
-                    // parses the given arguments between the '&' signs
+
+                    // Parses the given arguments between the '&' signs
                     parall_parse_token = strtok_r(parall_parse_rest, "&", &parall_parse_rest);
                     strcpy(parsed_line, parall_parse_token);
                     argument_line = parsed_line;
 
-                    // checks if redirection is needed. Parses the arguments on the left of the ">" and the redirection filename on the right of the ">"
+                    // Checks if redirection is needed. Parses the arguments on the left of the ">" and the redirection filename on the right of the ">"
                     redir_flag = redirection(parsed_line, argument_line, redir_filename);
                     // redir_flag returns 2 if error
                     if (redir_flag == 2) {
@@ -191,32 +229,42 @@ int main(int argc, char *argv[]){
                         free_arguments(parsed_arguments);
                         continue;
                     }
+                    //Renaming the argument_line to add more clarity
                     arg_rest = argument_line;
+
+                    //Resetting the counter in each loop
                     arg_counter = 0;
-                    // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+
+                    //Remainder of the line will be split between wihte spaces and stored to char pointer array called parsed_arguments which is used to give the command's arguments to execv.
+                    //How to use strok_r and with multiple delimeters. Source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
                     while((token = strtok_r(arg_rest, delimiters, &arg_rest))){
                         strcpy(parsed_arguments[arg_counter], token);
                         arg_counter++;
                     }
+
                     //Memory slot has to be freed before being assigned to null so it wont be lost.
                     free(parsed_arguments[arg_counter]);
                     //Inserting null to the end of the arguments list so execv() will know when to stop reading arguments.
                     parsed_arguments[arg_counter] =  NULL;
                     
-                    //if no argument given with only whitespace on the given line
+                    //If no arguments given with only whitespace on the given line this will be skipped and moved to next command
                     if (parsed_arguments[0] == NULL) {
                         free_arguments(parsed_arguments);
                         continue;
                     }
 
+                    //Creating a child process and giving it the variables to execute the command. line and paths variables are given to it so they can be freed before execv destroys the child process and executes the command
                     if ( !create_and_execute_child_process(redir_flag, redir_filename, parsed_arguments, line, paths) ){
                         free_arguments(parsed_arguments);
                         continue;
                     }
                     free_arguments(parsed_arguments);
                 }
+                //Waiting for every single child to finish before continuing so that the out puts are printed before the user can continue with wish
+                //Source for waiting all the child processes: https://stackoverflow.com/questions/876605/multiple-child-process
+                //How to use wait(NULL). Source: https://www.geeksforgeeks.org/wait-system-call-c/
                 for(int i = 0; i < parallel_counter; i++){
-                    if ((wait(NULL)) == -1) {	//Odottaa lapsen päättymistä
+                    if ((wait(NULL)) == -1) {	
                         perror("wait");
                     }
                 }
@@ -226,14 +274,15 @@ int main(int argc, char *argv[]){
     return(0);
 }
 
-
+//Used to free a char pointer array that has a lenght of LEN
 void free_arguments(char *arguments[LEN]){
     for(int i = 0; i < LEN; i++){
         free(arguments[i]);
     }
 }
 
-
+//Internal exit command. Frees all the memory allocations so no leaks would happen when exiting.
+//Exit will be given argument 0 to tell that the exit was normal and not due to error 
 void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer, char **paths){
     free_arguments(arguments);
     free(line);
@@ -242,6 +291,7 @@ void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer, char **pat
     exit(0);
 }
 
+//Internal cd command to change the current working directory.
 //Instructions on how to use chdir() in c: https://www.geeksforgeeks.org/chdir-in-c-language-with-examples/
 void wish_cd(char *arguments[LEN], int arg_counter){
     //Check that only one argument is supplied to the cd command
@@ -249,7 +299,9 @@ void wish_cd(char *arguments[LEN], int arg_counter){
         //write(STDERR_FILENO, error_message, strlen(error_message));
         fprintf(stderr, "Error: One and only one argument is allowed with the command 'cd'\n");
     }else{
-        if(chdir(arguments[1]) == -1){  //If only one command was set for cd the current directory will be changed using chdir()
+        //If only one command was set for cd the current directory will be changed using chdir().
+        //In case of error chdir returns -1
+        if(chdir(arguments[1]) == -1){  
             //write(STDERR_FILENO, error_message, strlen(error_message));
             perror("cd");
         }
@@ -257,38 +309,52 @@ void wish_cd(char *arguments[LEN], int arg_counter){
 
 }
 
+//Frees the char pointer array containing wish's paths
 void free_paths(char **paths){
     for(int i = 0; i < MAX_PATHS; i++){
         free(paths[i]);
     }
 }
 
+//Allocates memory for whish's paths in a char pointer array
 void alloc_memory_paths(char **paths){
     for(int i = 0; i < MAX_PATHS; i++){
         paths[i] = malloc(PATH_LEN * sizeof(char));
     }	
 }
 
+//Internal command to overwrite the default path from which whish will try to run the commands from
 void wish_path(char **paths, char **arguments, int arg_counter) {
     int i = 0;
+
+    //Frees and allocates the char pointer array so all the current paths are erased and new ones can be saved
     free_paths(paths);
     alloc_memory_paths(paths);
 
+    //If too many paths are given by the user an error is shown 
     if(arg_counter-1 > MAX_PATHS) {
         fprintf(stderr, "Error: Too many paths given. Max %d\n", MAX_PATHS);
+    //If only path was given as argument the path list will be empty
     } else if (arg_counter == 1) {
+        //Memory slot has to be freed before being assigned to null so it wont be lost.
         free(paths[0]);
+        //Assinging null to the end of the list so the end of the list can be found
         paths[0] = NULL;
+    //If more than the command path was given the paths will be saved to char pointer array
     } else if(arg_counter > 1) {
         for(i = 1; i < arg_counter; i++){
             strcpy(paths[i-1], arguments[i]);
             strcat(paths[i-1], "/");
         }
+        //Memory slot has to be freed before being assigned to null so it wont be lost.
         free(paths[i-1]);
+        //Assinging null to the end of the list so the end of the list can be found
         paths[i-1] = NULL;
     }
 }
 
+//TODO: add more comments?
+//Function to parse the read line if redirection is needed
 int redirection(char *line, char *argument_line, char *redir_filename) {
     // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
     char *filename;
@@ -319,34 +385,39 @@ int redirection(char *line, char *argument_line, char *redir_filename) {
 }
 
 
-
+//Function that creates a child process and in the child process uses execv to run the command
+//The switch case structure was implemented from our homework assignment in week 10 task 3.
 int create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char **paths){
     pid_t pid;
     char path[PATH_LEN];
     int valid_paths = 0;
 
     int i = 0;
+    //Testing if the command is found in the defined paths
     while ( paths[i] != NULL ) {
         strcpy(path, paths[i]);
         strcat(path, arguments[0]);
+        //If the command is found in one of the paths, the loop can be broken so the current and therefore working path will be used in the execv function
         if( access(path, X_OK) == 0){
             valid_paths = 1;
             break;
         }
         i++;
     }
+    //If no paths were found, an error is shown and returned back to main
     if(!valid_paths){
         //write(STDERR_FILENO, error_message, strlen(error_message));
         fprintf(stderr, "Error: command not found in any of the paths\n");
         return(0);
     }
     //The switch case structure was implemented from our homework assignment in week 10 task 3.
-    switch (pid = fork()){
+    switch (pid = fork()){ //Forking aka creating a new child process
     case -1:
         //write(STDERR_FILENO, error_message, strlen(error_message));
         perror("fork");
         break;
     case 0: //The child prosess
+        //If redirection is needed a new file will be created and the output will be written to it
         if(redir_flag){
             //How to use open function with dup2. Source: https://www.youtube.com/watch?v=5fnVr-zH-SE&t=   
             int output_file;
@@ -359,10 +430,12 @@ int create_and_execute_child_process(int redir_flag, char *redir_filename, char 
                 exit(1);
             }
 
+            //TODO: add error handling?
             dup2(output_file, STDOUT_FILENO); //Redirect stdout
             dup2(output_file, STDERR_FILENO); //Redirect stderr
             close(output_file);
 
+            //Error handling for execv
             if (execv(path, arguments) == -1) {
                 free_arguments(arguments);
                 free(line);
@@ -372,6 +445,7 @@ int create_and_execute_child_process(int redir_flag, char *redir_filename, char 
                 exit(0);    //Exiting the child when error happens and return back to the parent prosess.
             }
 
+        //If redirection is not needed, only exec will be ran
         } else {
                 if (execv(path, arguments) == -1) {
                     free_arguments(arguments);
@@ -390,6 +464,7 @@ int create_and_execute_child_process(int redir_flag, char *redir_filename, char 
     return(1);
 }
 
+//TODO: add comments
 void parallel_process_counter(char *line, int *parallel_counter) {
     //Count how many times parallel processes have to be executed
     // source: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
@@ -410,3 +485,5 @@ void parallel_process_counter(char *line, int *parallel_counter) {
         }
     }
 }
+
+/***********************EOF***********************/
