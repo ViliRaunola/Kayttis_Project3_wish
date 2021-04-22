@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>      
 #define LEN 255
+#define MAX_ARGS 255
 #define PATH_LEN 255
 #define MAX_PATHS 20
 #define EXIT_CALL "exit"
@@ -24,9 +25,9 @@ const char error_message[30] = "An error has occurred\n";
 // used for parsing input string
 const char delimiters[] = " \t\r\n\v\f>"; 
 
-void free_arguments(char *arguments[LEN]);
-void wish_exit(char *arguments[LEN], char *line, FILE *input_pointer, char **paths);
-void wish_cd(char *arguments[LEN], int arg_counter);
+void free_arguments(char *arguments[MAX_ARGS]);
+void wish_exit(char *arguments[MAX_ARGS], char *line, FILE *input_pointer, char **paths);
+void wish_cd(char *arguments[MAX_ARGS], int arg_counter);
 void wish_path(char **paths, char **arguments, int arg_counter);
 int redirection(char *line, char *argument_line, char *redir_filename);
 int create_and_execute_child_process(int redir_flag, char *redir_filename, char **arguments, char *line, char **paths);
@@ -46,9 +47,9 @@ int main(int argc, char *argv[]){
     char *argument_line = NULL;
     char *arg_rest = NULL;
     char *token = NULL;
-    char *arguments[LEN];
+    char *arguments[MAX_ARGS];
     char *parall_parse_rest = NULL;
-    char *parsed_arguments[LEN];
+    char *parsed_arguments[MAX_ARGS];
     char parsed_line[LEN];
     char *parall_parse_token = NULL;
     int arg_counter = 0;
@@ -56,7 +57,7 @@ int main(int argc, char *argv[]){
     int parallel_counter = 0; 
     FILE *input_pointer;
 
-    //Cecking if the program was ran with script file
+    //Checking if the program was ran with script file
     //If the program was launched without any arguments stdin is given to input pointer
     //If there was an additional argument given then the input pointer will be a pointer to a file from where the reading will be done in the same manner as in normal user input mode.
     if(argc == 1){
@@ -90,7 +91,7 @@ int main(int argc, char *argv[]){
 
         //Allocating memory for the arguments, char pointer array.
         //All the arguments will be saved here from each read line.
-        for(int i = 0; i < LEN; i++){
+        for(int i = 0; i < MAX_ARGS; i++){
             arguments[i] = malloc(LEN * sizeof(char));
         }	
 
@@ -217,7 +218,7 @@ int main(int argc, char *argv[]){
                 for(int i = 0; i < parallel_counter; i++){
 
                     // Creates new char pointer array for arguments between the '&' signs
-                    for(int x = 0; x < LEN; x++){
+                    for(int x = 0; x < MAX_ARGS; x++){
                         parsed_arguments[x] = malloc(LEN * sizeof(char));
                     }
 
@@ -284,8 +285,8 @@ int main(int argc, char *argv[]){
 }
 
 //Used to free a char pointer array that has a lenght of LEN
-void free_arguments(char *arguments[LEN]){
-    for(int i = 0; i < LEN; i++){
+void free_arguments(char *arguments[MAX_ARGS]){
+    for(int i = 0; i < MAX_ARGS; i++){
         free(arguments[i]);
     }
 }
